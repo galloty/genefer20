@@ -148,8 +148,8 @@ public:
 		platform.displayDevices();
 
 		size_t d = 0;
-		uint32_t n = 0;
-		std::string filename;
+		int n = 8;	// test
+		std::string filename = "GFN8.txt";	// test
 		// parse args
 		for (size_t i = 0, size = args.size(); i < size; ++i)
 		{
@@ -177,16 +177,18 @@ public:
 		genefer & gen = genefer::getInstance();
 		gen.setBoinc(bBoinc);
 
-		engine engine(platform, d);
-		gen.check(1, n, engine);
+		engine eng(platform, d);
+
+		gen.init(n, eng, bBoinc);
+
+		if (!filename.empty())
+		{
+			gen.checkFile(filename);
+		}
+
+		gen.release();
 
 		if (bBoinc) boinc_finish(EXIT_SUCCESS);
-
-		// engine engine0(platform, 0);
-		// test Intel GPU
-		// engine engine1(platform, 1);
-		// test CPU
-		// engine engine2(platform, 2);
 	}
 };
 
