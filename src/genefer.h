@@ -42,9 +42,11 @@ private:
 	bool _isBoinc = false;
 
 private:
-	static std::string res64String(const uint64_t res64)
+	static std::string res64String(const uint64_t res64, const bool uppercase = true)
 	{
-		std::stringstream ss; ss << std::uppercase << std::hex << std::setfill('0') << std::setw(16) << res64;
+		std::stringstream ss;
+		if (uppercase) ss << std::uppercase;
+		ss << std::hex << std::setfill('0') << std::setw(16) << res64;
 		return ss.str();
 	}
 
@@ -158,7 +160,7 @@ private:
 			}
 			else
 			{
-				const std::string res = res64String(r[i]), res64 = res64String(r64[i]);
+				const std::string res = res64String(r[i], false), res64 = res64String(r64[i]);
 				ssr << "composite" << " [RES = " << res << ", RES64 = " << res64 << "]";
 			}
 			ssr << std::endl;

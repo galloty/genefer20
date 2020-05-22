@@ -17,8 +17,6 @@ Please give feedback to the authors if improvement is realized. It is distribute
 
 #include "ocl/kernel.h"
 
-#define VSIZE	8
-
 typedef std::array<uint32_t, VSIZE> vint32;
 
 inline int ilog2(const uint32_t n) { return 31 - __builtin_clz(n); }
@@ -257,12 +255,12 @@ protected:
 		}
 	}
 
-private:
-	template<typename Zp>
-	static void square2(const size_t n, Zp * const x)
-	{
-		for (size_t k = 0; k < VSIZE * n; ++k) x[k] *= x[k];
-	}
+// private:
+// 	template<typename Zp>
+// 	static void square2(const size_t n, Zp * const x)
+// 	{
+// 		for (size_t k = 0; k < VSIZE * n; ++k) x[k] *= x[k];
+// 	}
 
 private:
 	template<typename Zp>
@@ -282,14 +280,14 @@ private:
 		}
 	}
 
-protected:
-	template<typename Zp>
-	static void square(const size_t n, const Szp<Zp> & z)
-	{
-		forward<Zp>(n, z.x, z.wr);
-		square2<Zp>(n, z.x);
-		backward<Zp>(n, z.x, z.wri);
-	}
+// protected:
+// 	template<typename Zp>
+// 	static void square(const size_t n, const Szp<Zp> & z)
+// 	{
+// 		forward<Zp>(n, z.x, z.wr);
+// 		square2<Zp>(n, z.x);
+// 		backward<Zp>(n, z.x, z.wri);
+// 	}
 
 protected:
 	template<typename Zp>
@@ -482,14 +480,30 @@ private:
 	void squareMod() const
 	{
 		const size_t n = this->_n;
+
 		const Szp<Zp1> & z1 = this->_z1;
-		square<Zp1>(n, z1);
+		forward<Zp1>(n, z1.x, z1.wr);
+		_engine.writeMemory_x1((uint32 *)z1.x);
+		_engine.square2_P1();
+		_engine.readMemory_x1((uint32 *)z1.x);
+		backward<Zp1>(n, z1.x, z1.wri);
+
 		const Szp<Zp2> & z2 = this->_z2;
-		square<Zp2>(n, z2);
+		forward<Zp2>(n, z2.x, z2.wr);
+		_engine.writeMemory_x2((uint32 *)z2.x);
+		_engine.square2_P2();
+		_engine.readMemory_x2((uint32 *)z2.x);
+		backward<Zp2>(n, z2.x, z2.wri);
+
 		if (this->_3primes)
 		{
 			const Szp<Zp3> & z3 = this->_z3;
-			square<Zp3>(n, z3);
+			forward<Zp3>(n, z3.x, z3.wr);
+			_engine.writeMemory_x3((uint32 *)z3.x);
+			_engine.square2_P3();
+			_engine.readMemory_x3((uint32 *)z3.x);
+			backward<Zp3>(n, z3.x, z3.wri);
+
 			normalize3(z1.x, z2.x, z3.x);
 		}
 		else normalize2(z1.x, z2.x);
@@ -556,7 +570,7 @@ private:
 	}
 
 private:
-	void _initEngine()
+	void initEngine()
 	{
 		std::stringstream src;
 		src << "#define\txxx\t" << 1 << std::endl << std::endl;
@@ -567,12 +581,12 @@ private:
 
 		_engine.loadProgram(src.str());
 
-		_engine.allocMemory();
+		_engine.allocMemory(this->_n);
 		_engine.createKernels();
 	}
 
 private:
-	void _clearEngine()
+	void clearEngine()
 	{
 		_engine.releaseKernels();
 		_engine.releaseMemory();
@@ -588,7 +602,7 @@ public:
 		create<Zp2>(n, this->_z2);
 		create<Zp3>(n, this->_z3);
 
-		_initEngine();
+		initEngine();
 	}
 
 public:
@@ -596,7 +610,7 @@ public:
 	{
 		delete[] _x;
 
-		_clearEngine();
+		clearEngine();
 	}
 
 public:
@@ -717,8 +731,7 @@ public:
 			uint64_t r = 0;
 			for (size_t j = 8; j > 0; --j)
 			{
-				const size_t k = VSIZE * j + i;
-				r = (r << 8) | uint8_t(x[VSIZE * n - k]);
+				r = (r << 8) | uint8_t(x[VSIZE * (n - j) + i]);
 			}
 			res[i] = r;
 

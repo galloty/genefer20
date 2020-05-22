@@ -422,7 +422,7 @@ private:
 		oclFatal(clFinish(_queue));
 	}
 
-protected:
+public:
 	cl_mem _createBuffer(const cl_mem_flags flags, const size_t size, const bool clear = true) const
 	{
 		cl_int err;
@@ -437,7 +437,7 @@ protected:
 		return mem;
 	}
 
-protected:
+public:
 	static void _releaseBuffer(cl_mem & mem)
 	{
 		if (mem != nullptr)

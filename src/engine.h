@@ -14,6 +14,8 @@ typedef int32_t 	int32;
 typedef uint64_t	uint64;
 typedef int64_t 	int64;
 
+#define VSIZE	8
+
 inline uint32 mul_hi(const uint32 a, const uint32 b) { return uint32((uint64(a) * b) >> 32); }
 
 struct uint96
@@ -85,18 +87,50 @@ inline uint96 int96_abs(const int96 x)
 class engine : public ocl::device
 {
 private:
+	struct Sp
+	{
+		cl_mem x, y, wr, wri, d;
+		Sp() : x(nullptr), y(nullptr), wr(nullptr), wri(nullptr), d(nullptr) {}
+
+		void alloc(ocl::device & device, const size_t n)
+		{
+			x = device._createBuffer(CL_MEM_READ_WRITE, sizeof(cl_uint) * VSIZE * n);
+			y = device._createBuffer(CL_MEM_READ_WRITE, sizeof(cl_uint) * VSIZE * n);
+			wr = device._createBuffer(CL_MEM_READ_ONLY, sizeof(cl_uint) * n);
+			wri = device._createBuffer(CL_MEM_READ_ONLY, sizeof(cl_uint) * n);
+			d = device._createBuffer(CL_MEM_READ_WRITE, sizeof(cl_uint) * VSIZE * n);
+		}
+
+		void release()
+		{
+			_releaseBuffer(x);
+			_releaseBuffer(y);
+			_releaseBuffer(wr);
+			_releaseBuffer(wri);
+			_releaseBuffer(d);
+		}
+	};
+
+private:
+	size_t _size = 0;
+	Sp _z1, _z2, _z3;
+	cl_kernel _square2_P1 = nullptr, _square2_P2 = nullptr, _square2_P3 = nullptr;
 
 public:
 	engine(const ocl::platform & platform, const size_t d) : ocl::device(platform, d) {}
 	virtual ~engine() {}
 
 public:
-	void allocMemory()
+	void allocMemory(const size_t size)
 	{
 #if defined (ocl_debug)
 		std::ostringstream ss; ss << "Alloc gpu memory." << std::endl;
 		pio::display(ss.str());
 #endif
+		_size = size;
+		_z1.alloc(*this, size);
+		_z2.alloc(*this, size);
+		_z3.alloc(*this, size);
 	}
 
 public:
@@ -106,6 +140,13 @@ public:
 		std::ostringstream ss; ss << "Free gpu memory." << std::endl;
 		pio::display(ss.str());
 #endif
+		if (_size != 0)
+		{
+			_z1.release();
+			_z2.release();
+			_z3.release();
+			_size = 0;
+		}
 	}
 
 public:
@@ -115,6 +156,13 @@ public:
 		std::ostringstream ss; ss << "Create ocl kernels." << std::endl;
 		pio::display(ss.str());
 #endif
+
+		_square2_P1 = _createKernel("square2_P1");
+		_setKernelArg(_square2_P1, 0, sizeof(cl_mem), &_z1.x);
+		_square2_P2 = _createKernel("square2_P2");
+		_setKernelArg(_square2_P2, 0, sizeof(cl_mem), &_z2.x);
+		_square2_P3 = _createKernel("square2_P3");
+		_setKernelArg(_square2_P3, 0, sizeof(cl_mem), &_z3.x);
 	}
 
 public:
@@ -124,5 +172,22 @@ public:
 		std::ostringstream ss; ss << "Release ocl kernels." << std::endl;
 		pio::display(ss.str());
 #endif
+		_releaseKernel(_square2_P1);
+		_releaseKernel(_square2_P2);
+		_releaseKernel(_square2_P3);
 	}
+
+public:
+	void readMemory_x1(cl_uint * const ptr) { _readBuffer(_z1.x, ptr, sizeof(cl_uint) * VSIZE * _size); }
+	void readMemory_x2(cl_uint * const ptr) { _readBuffer(_z2.x, ptr, sizeof(cl_uint) * VSIZE * _size); }
+	void readMemory_x3(cl_uint * const ptr) { _readBuffer(_z3.x, ptr, sizeof(cl_uint) * VSIZE * _size); }
+
+	void writeMemory_x1(const cl_uint * const ptr) { _writeBuffer(_z1.x, ptr, sizeof(cl_uint) * VSIZE * _size); }
+	void writeMemory_x2(const cl_uint * const ptr) { _writeBuffer(_z2.x, ptr, sizeof(cl_uint) * VSIZE * _size); }
+	void writeMemory_x3(const cl_uint * const ptr) { _writeBuffer(_z3.x, ptr, sizeof(cl_uint) * VSIZE * _size); }
+
+public:
+	void square2_P1() { _executeKernel(_square2_P1, VSIZE * _size); }
+	void square2_P2() { _executeKernel(_square2_P2, VSIZE * _size); }
+	void square2_P3() { _executeKernel(_square2_P3, VSIZE * _size); }
 };
