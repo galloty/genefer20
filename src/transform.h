@@ -102,18 +102,18 @@ private:
 	{
 		Zp * const x;
 		Zp * const y;
-		Zp * const wr;
-		Zp * const wri;
+		// Zp * const wr;
+		// Zp * const wri;
 		Zp * const d;
 		const Zp norm;
 
-		Szp(const size_t n) : x(new Zp[VSIZE * n]), y(new Zp[VSIZE * n]), wr(new Zp[n]), wri(new Zp[n]), d(new Zp[VSIZE * n]), norm(Zp::norm(n)) {}
+		Szp(const size_t n) : x(new Zp[VSIZE * n]), y(new Zp[VSIZE * n]), /*wr(new Zp[n]), wri(new Zp[n]),*/ d(new Zp[VSIZE * n]), norm(Zp::norm(n)) {}
 		virtual ~Szp() 
 		{
 			delete[] x;
 			delete[] y;
-			delete[] wr;
-			delete[] wri;
+			// delete[] wr;
+			// delete[] wri;
 			delete[] d;
 		}
 	};
@@ -162,10 +162,8 @@ private:
 
 protected:
 	template<typename Zp>
-	static void create(const size_t n, const Szp<Zp> & z)
+	static void create(const size_t n, std::vector<uint32> & wr, std::vector<uint32> & wri)
 	{
-		Zp * const wr = z.wr;
-		Zp * const wri = z.wri;
 		for (size_t s = 1; s < n; s *= 2)
 		{
 			const size_t m = 4 * s;
@@ -175,85 +173,75 @@ protected:
 			{
 				const size_t e = bitRev(i, 2 * s) + 1;
 				const Zp wrsi = prRoot_m.pow(e);
-				wr[s + i] = wrsi; wri[s + s - i - 1] = -wrsi;
+				wr[s + i] = wrsi.get(); wri[s + s - i - 1] = Zp(-wrsi).get();
 			}
 		}
 	}
 
-protected:
-	template<typename Zp>
-	static void reset(const size_t n, const Szp<Zp> & z, const uint32 a)
-	{
-		Zp * const x = z.x;
-		for (size_t k = 0; k < VSIZE; ++k) x[k] = Zp(a);
-		for (size_t k = VSIZE; k < VSIZE * n; ++k) x[k] = Zp(0);
-		Zp * const d = z.d;
-		for (size_t k = 0; k < VSIZE; ++k) d[k] = Zp(a);
-		for (size_t k = VSIZE; k < VSIZE * n; ++k) d[k] = Zp(0);
-	}
+// protected:
+// 	template<typename Zp>
+// 	static void reset(const size_t n, const Szp<Zp> & z, const uint32 a)
+// 	{
+// 		Zp * const x = z.x;
+// 		for (size_t k = 0; k < VSIZE; ++k) x[k] = Zp(a);
+// 		for (size_t k = VSIZE; k < VSIZE * n; ++k) x[k] = Zp(0);
+// 		Zp * const d = z.d;
+// 		for (size_t k = 0; k < VSIZE; ++k) d[k] = Zp(a);
+// 		for (size_t k = VSIZE; k < VSIZE * n; ++k) d[k] = Zp(0);
+// 	}
 
-protected:
-	template<typename Zp>
-	static void set(const size_t n, Zp * const y, const Zp * const x)
-	{
-		for (size_t k = 0; k < VSIZE * n; ++k) y[k] = x[k];
-	}
+// protected:
+// 	template<typename Zp>
+// 	static void set(const size_t n, Zp * const y, const Zp * const x)
+// 	{
+// 		for (size_t k = 0; k < VSIZE * n; ++k) y[k] = x[k];
+// 	}
 
-private:
-	template<typename Zp>
-	static void swap(const size_t n, Zp * const y, Zp * const x)
-	{
-		for (size_t k = 0; k < VSIZE * n; ++k)
-		{
-			const Zp t = y[k]; y[k] = x[k]; x[k] = t;
-		}
-	}
+// private:
+// 	template<typename Zp>
+// 	static void swap(const size_t n, Zp * const y, Zp * const x)
+// 	{
+// 		for (size_t k = 0; k < VSIZE * n; ++k)
+// 		{
+// 			const Zp t = y[k]; y[k] = x[k]; x[k] = t;
+// 		}
+// 	}
 
-protected:
-	template<typename Zp>
-	static void forward(const size_t n, Zp * const x, const Zp * const wr)
-	{
-		for (size_t m = n / 2, s = 1; m >= 1; m /= 2, s *= 2)
-		{
-			for (size_t j = 0; j < s; ++j)
-			{
-				const Zp w = wr[s + j];
+// protected:
+// 	template<typename Zp>
+// 	static void forward(const size_t n, Zp * const x, const Zp * const wr)
+// 	{
+// 		for (size_t m = n / 2, lm = ilog2(m), s = 1; m >= 1; m /= 2, --lm, s *= 2)
+// 		{
+// 			for (size_t id = 0; id < VSIZE * n / 2; ++id)
+// 			{
+// 				const size_t vid = id / VSIZE, l = id % VSIZE;
+// 				const size_t j = vid >> lm, i = vid & (m - 1), mj = vid - i;
+// 				const Zp w = wr[s + j];
+// 				const size_t k = VSIZE * (2 * mj + i) + l;
+// 				const Zp u = x[k], um = x[k + VSIZE * m] * w;
+// 				x[k] = u + um; x[k + VSIZE * m] = u - um;
+// 			}
+// 		}
+// 	}
 
-				for (size_t i = 0; i < m; ++i)
-				{
-					const size_t k = 2 * m * j + i;
-					for (size_t l = 0; l < VSIZE; ++l)
-					{
-						const Zp u = x[VSIZE * k + l], um = x[VSIZE * (k + m) + l] * w;
-						x[VSIZE * k + l] = u + um; x[VSIZE * (k + m) + l] = u - um;
-					}
-				}
-			}
-		}
-	}
-
-protected:
-	template<typename Zp>
-	static void backward(const size_t n, Zp * const x, const Zp * const wri)
-	{
-		for (size_t m = 1, s = n / 2; m <= n / 2; m *= 2, s /= 2)
-		{
-			for (size_t j = 0; j < s; ++j)
-			{
-				const Zp wi = wri[s + j];
-
-				for (size_t i = 0; i < m; ++i)
-				{
-					const size_t k = 2 * m * j + i;
-					for (size_t l = 0; l < VSIZE; ++l)
-					{
-						const Zp u = x[VSIZE * k + l], um = x[VSIZE * (k + m) + l];
-						x[VSIZE * k + l] = u + um; x[VSIZE * (k + m) + l] = (u - um) * wi;
-					}
-				}
-			}
-		}
-	}
+// protected:
+// 	template<typename Zp>
+// 	static void backward(const size_t n, Zp * const x, const Zp * const wri)
+// 	{
+// 		for (size_t m = 1, lm = ilog2(m), s = n / 2; m <= n / 2; m *= 2, ++lm, s /= 2)
+// 		{
+// 			for (size_t id = 0; id < VSIZE * n / 2; ++id)
+// 			{
+// 				const size_t vid = id / VSIZE, l = id % VSIZE;
+// 				const size_t j = vid >> lm, i = vid & (m - 1), mj = vid - i;
+// 				const Zp wi = wri[s + j];
+// 				const size_t k = VSIZE * (2 * mj + i) + l;
+// 				const Zp u = x[k], um = x[k + VSIZE * m];
+// 				x[k] = u + um; x[k + VSIZE * m] = (u - um) * wi;
+// 			}
+// 		}
+// 	}
 
 // private:
 // 	template<typename Zp>
@@ -262,23 +250,23 @@ protected:
 // 		for (size_t k = 0; k < VSIZE * n; ++k) x[k] *= x[k];
 // 	}
 
-private:
-	template<typename Zp>
-	static void mul2(const size_t n, Zp * const x, const Zp * const y)
-	{
-		for (size_t k = 0; k < VSIZE * n; ++k) x[k] *= y[k];
-	}
+// private:
+// 	template<typename Zp>
+// 	static void mul2(const size_t n, Zp * const x, const Zp * const y)
+// 	{
+// 		for (size_t k = 0; k < VSIZE * n; ++k) x[k] *= y[k];
+// 	}
 
-private:
-	template<typename Zp>
-	static void mul2cond(const size_t n, Zp * const x, const Zp * const y, const bool c[VSIZE])
-	{
-		for (size_t k = 0; k < VSIZE * n; ++k)
-		{
-			const size_t i = k % VSIZE;
-			if (c[i]) x[k] *= y[k];
-		}
-	}
+// private:
+// 	template<typename Zp>
+// 	static void mul2cond(const size_t n, Zp * const x, const Zp * const y, const uint64 c)
+// 	{
+// 		for (size_t k = 0; k < VSIZE * n; ++k)
+// 		{
+// 			const size_t i = k % VSIZE;
+// 			if ((c & (uint64(1) << i)) != 0) x[k] *= y[k];
+// 		}
+// 	}
 
 // protected:
 // 	template<typename Zp>
@@ -289,37 +277,37 @@ private:
 // 		backward<Zp>(n, z.x, z.wri);
 // 	}
 
-protected:
-	template<typename Zp>
-	static void mul(const size_t n, const Szp<Zp> & z, const bool c[VSIZE])
-	{
-		forward<Zp>(n, z.x, z.wr);
-		mul2cond<Zp>(n, z.x, z.y, c);
-		backward<Zp>(n, z.x, z.wri);
-	}
+// protected:
+// 	template<typename Zp>
+// 	static void mul(const size_t n, const Szp<Zp> & z, const uint64 c)
+// 	{
+// 		forward<Zp>(n, z.x, z.wr);
+// 		mul2cond<Zp>(n, z.x, z.y, c);
+// 		backward<Zp>(n, z.x, z.wri);
+// 	}
 
-protected:
-	template<typename Zp>
-	static void mul_dx(const size_t n, const Szp<Zp> & z)
-	{
-		forward<Zp>(n, z.d, z.wr);
-		set<Zp>(n, z.y, z.x);
-		forward<Zp>(n, z.y, z.wr);
-		mul2<Zp>(n, z.d, z.y);
-		backward<Zp>(n, z.d, z.wri);
-	}
+// protected:
+// 	template<typename Zp>
+// 	static void mul_dx(const size_t n, const Szp<Zp> & z)
+// 	{
+// 		forward<Zp>(n, z.d, z.wr);
+// 		set<Zp>(n, z.y, z.x);
+// 		forward<Zp>(n, z.y, z.wr);
+// 		mul2<Zp>(n, z.d, z.y);
+// 		backward<Zp>(n, z.d, z.wri);
+// 	}
 
-protected:
-	template<typename Zp>
-	static void mul_xd_swap(const size_t n, const Szp<Zp> & z)
-	{
-		forward<Zp>(n, z.x, z.wr);
-		set<Zp>(n, z.y, z.d);
-		forward<Zp>(n, z.y, z.wr);
-		mul2<Zp>(n, z.x, z.y);
-		backward<Zp>(n, z.x, z.wri);
-		swap<Zp>(n, z.x, z.d);
-	}
+// protected:
+// 	template<typename Zp>
+// 	static void mul_xd_swap(const size_t n, const Szp<Zp> & z)
+// 	{
+// 		forward<Zp>(n, z.x, z.wr);
+// 		set<Zp>(n, z.y, z.d);
+// 		forward<Zp>(n, z.y, z.wr);
+// 		mul2<Zp>(n, z.x, z.y);
+// 		backward<Zp>(n, z.x, z.wri);
+// 		swap<Zp>(n, z.x, z.d);
+// 	}
 
 private:
 	static uint32 barrett(const uint64 a, const uint32 b, const uint32 b_inv, const int b_s, uint32 & a_p)
@@ -463,16 +451,22 @@ private:
 	{
 		const size_t n = this->_n;
 		const Szp<Zp1> & z1 = this->_z1;
-		set<Zp1>(n, z1.y, z1.x);
-		forward<Zp1>(n, z1.y, z1.wr);
+		_engine.writeMemory_x1((uint32 *)z1.x);
+		_engine.setxy_P1();
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P1(s, lm);
+		_engine.readMemory_y1((uint32 *)z1.y);
 		const Szp<Zp2> & z2 = this->_z2;
-		set<Zp2>(n, z2.y, z2.x);
-		forward<Zp2>(n, z2.y, z2.wr);
+		_engine.writeMemory_x2((uint32 *)z2.x);
+		_engine.setxy_P2();
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P2(s, lm);
+		_engine.readMemory_y2((uint32 *)z2.y);
 		if (this->_3primes)
 		{
 			const Szp<Zp3> & z3 = this->_z3;
-			set<Zp3>(n, z3.y, z3.x);
-			forward<Zp3>(n, z3.y, z3.wr);
+			_engine.writeMemory_x3((uint32 *)z3.x);
+			_engine.setxy_P3();
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P3(s, lm);
+			_engine.readMemory_y3((uint32 *)z3.y);
 		}
 	}
 
@@ -482,27 +476,27 @@ private:
 		const size_t n = this->_n;
 
 		const Szp<Zp1> & z1 = this->_z1;
-		forward<Zp1>(n, z1.x, z1.wr);
 		_engine.writeMemory_x1((uint32 *)z1.x);
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P1(s, lm);
 		_engine.square2_P1();
+		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P1(s, lm);
 		_engine.readMemory_x1((uint32 *)z1.x);
-		backward<Zp1>(n, z1.x, z1.wri);
 
 		const Szp<Zp2> & z2 = this->_z2;
-		forward<Zp2>(n, z2.x, z2.wr);
 		_engine.writeMemory_x2((uint32 *)z2.x);
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P2(s, lm);
 		_engine.square2_P2();
+		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P2(s, lm);
 		_engine.readMemory_x2((uint32 *)z2.x);
-		backward<Zp2>(n, z2.x, z2.wri);
 
 		if (this->_3primes)
 		{
 			const Szp<Zp3> & z3 = this->_z3;
-			forward<Zp3>(n, z3.x, z3.wr);
 			_engine.writeMemory_x3((uint32 *)z3.x);
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P3(s, lm);
 			_engine.square2_P3();
+			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P3(s, lm);
 			_engine.readMemory_x3((uint32 *)z3.x);
-			backward<Zp3>(n, z3.x, z3.wri);
 
 			normalize3(z1.x, z2.x, z3.x);
 		}
@@ -510,17 +504,35 @@ private:
 	}
 
 private:
-	void mulMod(const bool c[VSIZE]) const
+	void mulMod(const uint64 c) const
 	{
 		const size_t n = this->_n;
+
 		const Szp<Zp1> & z1 = this->_z1;
-		mul<Zp1>(n, z1, c);
+		_engine.writeMemory_x1((uint32 *)z1.x);
+		_engine.writeMemory_y1((uint32 *)z1.y);
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P1(s, lm);
+		_engine.mul2condxy_P1(c);
+		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P1(s, lm);
+		_engine.readMemory_x1((uint32 *)z1.x);
+
 		const Szp<Zp2> & z2 = this->_z2;
-		mul<Zp2>(n, z2, c);
+		_engine.writeMemory_x2((uint32 *)z2.x);
+		_engine.writeMemory_y2((uint32 *)z2.y);
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P2(s, lm);
+		_engine.mul2condxy_P2(c);
+		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P2(s, lm);
+		_engine.readMemory_x2((uint32 *)z2.x);
 		if (this->_3primes)
 		{
 			const Szp<Zp3> & z3 = this->_z3;
-			mul<Zp3>(n, z3, c);
+			_engine.writeMemory_x3((uint32 *)z3.x);
+			_engine.writeMemory_y3((uint32 *)z3.y);
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P3(s, lm);
+			_engine.mul2condxy_P3(c);
+			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P3(s, lm);
+			_engine.readMemory_x3((uint32 *)z3.x);
+
 			normalize3(z1.x, z2.x, z3.x);
 		}
 		else normalize2(z1.x, z2.x);
@@ -573,14 +585,13 @@ private:
 	void initEngine()
 	{
 		std::stringstream src;
-		src << "#define\txxx\t" << 1 << std::endl << std::endl;
+		src << "#define\tVSIZE\t" << VSIZE << std::endl << std::endl;
 		src << std::endl;
 
 		// if xxx.cl file is not found then source is src_ocl_xxx string in src/ocl/xxx.h
 		if (!readOpenCL("ocl/kernel.cl", "src/ocl/kernel.h", "src_ocl_kernel", src)) src << src_ocl_kernel;
 
 		_engine.loadProgram(src.str());
-
 		_engine.allocMemory(this->_n);
 		_engine.createKernels();
 	}
@@ -597,12 +608,16 @@ public:
 	transform(const uint32_t size, engine & engine, const bool isBoinc) :
 		_n(size), _isBoinc(isBoinc), _engine(engine), _z1(size), _z2(size), _z3(size), _x(new uint32[VSIZE * size])
 	{
-		const size_t n = this->_n;
-		create<Zp1>(n, this->_z1);
-		create<Zp2>(n, this->_z2);
-		create<Zp3>(n, this->_z3);
-
 		initEngine();
+
+		const size_t n = this->_n;
+		std::vector<uint32> wr(n), wri(n);
+		create<Zp1>(n, wr, wri);
+		_engine.writeMemory_w1(wr.data(), wri.data());
+		create<Zp2>(n, wr, wri);
+		_engine.writeMemory_w2(wr.data(), wri.data());
+		create<Zp3>(n, wr, wri);
+		_engine.writeMemory_w3(wr.data(), wri.data());
 	}
 
 public:
@@ -636,9 +651,18 @@ public:
 			this->_b_inv[i] = uint32_t((uint64_t(1) << (s + 32)) / b[i]);
 		}
 
-		reset<Zp1>(n, this->_z1, a);
-		reset<Zp2>(n, this->_z2, a);
-		if (this->_3primes) reset<Zp3>(n, this->_z3, a);
+		_engine.reset_P1(a);
+		_engine.reset_P2(a);
+		_engine.readMemory_x1((uint32 *)this->_z1.x);
+		_engine.readMemory_d1((uint32 *)this->_z1.d);
+		_engine.readMemory_x2((uint32 *)this->_z2.x);
+		_engine.readMemory_d2((uint32 *)this->_z2.d);
+		if (this->_3primes)
+		{
+			_engine.reset_P3(a);
+			_engine.readMemory_x3((uint32 *)this->_z3.x);
+			_engine.readMemory_d3((uint32 *)this->_z3.d);
+		}
 	}
 
 public:
@@ -649,8 +673,12 @@ public:
 		for (int j = this->_lgb - 1; j >= 0; --j)
 		{
 			squareMod();
-			bool c[VSIZE];
-			for (size_t i = 0; i < VSIZE; ++i) c[i] = ((b[i] & (uint32(1) << j)) != 0);
+			uint64 c = 0;
+			for (size_t i = 0; i < VSIZE; ++i)
+			{
+				const uint64 ci = ((b[i] & (uint32(1) << j)) != 0) ? 1 : 0;
+				c |= ci << i;
+			}
 			mulMod(c);
 		}
 	}
@@ -659,14 +687,39 @@ public:
 	void gerbiczStep() const
 	{
 		const size_t n = this->_n;
+
 		const Szp<Zp1> & z1 = this->_z1;
-		mul_dx<Zp1>(n, z1);
+		_engine.writeMemory_d1((uint32 *)z1.d);
+		_engine.writeMemory_x1((uint32 *)z1.x);
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2d_P1(s, lm);
+		_engine.setxy_P1();
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P1(s, lm);
+		_engine.mul2dy_P1();
+		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2d_P1(s, lm);
+		_engine.readMemory_d1((uint32 *)z1.d);
+
 		const Szp<Zp2> & z2 = this->_z2;
-		mul_dx<Zp2>(n, z2);
+		_engine.writeMemory_d2((uint32 *)z2.d);
+		_engine.writeMemory_x2((uint32 *)z2.x);
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2d_P2(s, lm);
+		_engine.setxy_P2();
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P2(s, lm);
+		_engine.mul2dy_P2();
+		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2d_P2(s, lm);
+		_engine.readMemory_d2((uint32 *)z2.d);
+
 		if (this->_3primes)
 		{
 			const Szp<Zp3> & z3 = this->_z3;
-			mul_dx<Zp3>(n, z3);
+			_engine.writeMemory_d3((uint32 *)z3.d);
+			_engine.writeMemory_x3((uint32 *)z3.x);
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2d_P3(s, lm);
+			_engine.setxy_P3();
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P3(s, lm);
+			_engine.mul2dy_P3();
+			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2d_P3(s, lm);
+			_engine.readMemory_d3((uint32 *)z3.d);
+
 			normalize3(z1.d, z2.d, z3.d);
 		}
 		else normalize2(z1.d, z2.d);
@@ -676,14 +729,45 @@ public:
 	void gerbiczLastStep() const
 	{
 		const size_t n = this->_n;
+
 		const Szp<Zp1> & z1 = this->_z1;
-		mul_xd_swap<Zp1>(n, z1);
+		_engine.writeMemory_x1((uint32 *)z1.x);
+		_engine.writeMemory_d1((uint32 *)z1.d);
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P1(s, lm);
+		_engine.setdy_P1();
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P1(s, lm);
+		_engine.mul2xy_P1();
+		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P1(s, lm);
+		_engine.swap_xd_P1();
+		_engine.readMemory_x1((uint32 *)z1.x);
+		_engine.readMemory_d1((uint32 *)z1.d);
+
 		const Szp<Zp2> & z2 = this->_z2;
-		mul_xd_swap<Zp2>(n, z2);
+		_engine.writeMemory_x2((uint32 *)z2.x);
+		_engine.writeMemory_d2((uint32 *)z2.d);
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P2(s, lm);
+		_engine.setdy_P2();
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P2(s, lm);
+		_engine.mul2xy_P2();
+		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P2(s, lm);
+		_engine.swap_xd_P2();
+		_engine.readMemory_x2((uint32 *)z2.x);
+		_engine.readMemory_d2((uint32 *)z2.d);
+
 		if (this->_3primes)
 		{
 			const Szp<Zp3> & z3 = this->_z3;
-			mul_xd_swap<Zp3>(n, z3);
+			_engine.writeMemory_x3((uint32 *)z3.x);
+			_engine.writeMemory_d3((uint32 *)z3.d);
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P3(s, lm);
+			_engine.setdy_P3();
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P3(s, lm);
+			_engine.mul2xy_P3();
+			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P3(s, lm);
+			_engine.swap_xd_P3();
+			_engine.readMemory_x3((uint32 *)z3.x);
+			_engine.readMemory_d3((uint32 *)z3.d);
+
 			normalize3(z1.d, z2.d, z3.d);
 		}
 		else normalize2(z1.d, z2.d);
