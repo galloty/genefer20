@@ -125,6 +125,7 @@ private:
 	const Szp<Zp1> _z1;
 	const Szp<Zp2> _z2;
 	const Szp<Zp3> _z3;
+	int64 * const _f;
 	uint32 * const _x;
 	bool _3primes = true;
 	int _lgb = 0;
@@ -375,30 +376,42 @@ private:
 		const uint32 * const b_inv = this->_b_inv;
 		const int b_s = this->_b_s;
 
-		int64 f[VSIZE];
-		for (size_t i = 0; i < VSIZE; ++i) f[i] = 0;
+		int64 * const f = _f;
 
-		for (size_t k = 0; k < VSIZE * n; ++k)
+		for (size_t l = 0; l < VSIZE / CSIZE * n; ++l)
 		{
-			const size_t i = k % VSIZE;
-			f[i] += garner2(x1[k] * norm1, x2[k] * norm2);
-			const int32 r = reduce64(f[i], b[i], b_inv[i], b_s);
-			x1[k] = Zp1(r); x2[k] = Zp2(r);
+			const size_t i = l % VSIZE, j = l / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
+			int64 a = 0;
+			for (size_t c = 0; c < CSIZE; ++c)
+			{
+				const size_t k = k0 + c * VSIZE;
+				a += garner2(x1[k] * norm1, x2[k] * norm2);
+				const int32 r = reduce64(a, b[i], b_inv[i], b_s);
+				x1[k] = Zp1(r); x2[k] = Zp2(r);
+			}
+			f[l] = a;
 		}
 
-		for (size_t i = 0; i < VSIZE; ++i)
+		for (size_t l = 0; l < VSIZE / CSIZE * n; ++l)
 		{
-			while (f[i] != 0)
+			const size_t i = l % VSIZE, j = l / VSIZE;
+			const bool rot = (j == n / CSIZE - 1);
+			int64 a = rot ? -f[l] : f[l];	// a_0 = -a_n
+			const size_t k0 = rot ? i : (j + 1) * (VSIZE * CSIZE) + i;
+			size_t c;
+			for (c = 0; c < CSIZE - 1; ++c)
 			{
-				f[i] = -f[i];		// a_0 = -a_n
-				for (size_t j = 0; j < n; ++j)
-				{
-					const size_t k = VSIZE * j + i;
-					f[i] += x1[k].geti();
-					const int32 r = reduce64(f[i], b[i], b_inv[i], b_s);
-					x1[k] = Zp1(r); x2[k] = Zp2(r);
-					if (f[i] == 0) break;
-				}
+				const size_t k = k0 + c * VSIZE;
+				a += x1[k].geti();
+				const int32 r = reduce64(a, b[i], b_inv[i], b_s);
+				x1[k] = Zp1(r); x2[k] = Zp2(r);
+				if (a == 0) break;
+			}
+			if (c == CSIZE - 1)
+			{
+				const size_t k = k0 + c * VSIZE;
+				x1[k] += Zp1(int32(a)); x2[k] += Zp2(int32(a));
+				if (abs(a) > 1) throw;
 			}
 		}
 	}
@@ -415,33 +428,42 @@ private:
 		const uint32 * const b_inv = this->_b_inv;
 		const int b_s = this->_b_s;
 
-		int96 f96[VSIZE];
-		for (size_t i = 0; i < VSIZE; ++i) f96[i] = int96_set_si(0);
+		int64 * const f = _f;
 
-		for (size_t k = 0; k < VSIZE * n; ++k)
+		for (size_t l = 0; l < VSIZE / CSIZE * n; ++l)
 		{
-			const size_t i = k % VSIZE;
-			f96[i] = int96_add(f96[i], garner3(x1[k] * norm1, x2[k] * norm2, x3[k] * norm3));
-			const int32 r = reduce96(f96[i], b[i], b_inv[i], b_s);
-			x1[k] = Zp1(r); x2[k] = Zp2(r); x3[k] = Zp3(r);
+			const size_t i = l % VSIZE, j = l / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
+			int96 a = int96_set_si(0);
+			for (size_t c = 0; c < CSIZE; ++c)
+			{
+				const size_t k = k0 + c * VSIZE;
+				a = int96_add(a, garner3(x1[k] * norm1, x2[k] * norm2, x3[k] * norm3));
+				const int32 r = reduce96(a, b[i], b_inv[i], b_s);
+				x1[k] = Zp1(r); x2[k] = Zp2(r); x3[k] = Zp3(r);
+			}
+			f[l] = int64(a.s0);
 		}
 
-		int64 f[VSIZE];
-		for (size_t i = 0; i < VSIZE; ++i) f[i] = int64(f96[i].s0);
-
-		for (size_t i = 0; i < VSIZE; ++i)
+		for (size_t l = 0; l < VSIZE / CSIZE * n; ++l)
 		{
-			while (f[i] != 0)
+			const size_t i = l % VSIZE, j = l / VSIZE;
+			const bool rot = (j == n / CSIZE - 1);
+			int64 a = rot ? -f[l] : f[l];	// a_0 = -a_n
+			const size_t k0 = rot ? i : (j + 1) * (VSIZE * CSIZE) + i;
+			size_t c;
+			for (c = 0; c < CSIZE - 1; ++c)
 			{
-				f[i] = -f[i];		// a_0 = -a_n
-				for (size_t j = 0; j < n; ++j)
-				{
-					const size_t k = VSIZE * j + i;
-					f[i] += x1[k].geti();
-					const int32 r = reduce64(f[i], b[i], b_inv[i], b_s);
-					x1[k] = Zp1(r); x2[k] = Zp2(r); x3[k] = Zp3(r);
-					if (f[i] == 0) break;
-				}
+				const size_t k = k0 + c * VSIZE;
+				a += x1[k].geti();
+				const int32 r = reduce64(a, b[i], b_inv[i], b_s);
+				x1[k] = Zp1(r); x2[k] = Zp2(r); x3[k] = Zp3(r);
+				if (a == 0) break;
+			}
+			if (c == CSIZE - 1)
+			{
+				const size_t k = k0 + c * VSIZE;
+				x1[k] += Zp1(int32(a)); x2[k] += Zp2(int32(a)); x3[k] += Zp3(int32(a));
+				if (abs(a) > 1) throw;
 			}
 		}
 	}
@@ -606,7 +628,7 @@ private:
 
 public:
 	transform(const uint32_t size, engine & engine, const bool isBoinc) :
-		_n(size), _isBoinc(isBoinc), _engine(engine), _z1(size), _z2(size), _z3(size), _x(new uint32[VSIZE * size])
+		_n(size), _isBoinc(isBoinc), _engine(engine), _z1(size), _z2(size), _z3(size), _f(new int64[VSIZE / CSIZE * size]), _x(new uint32[VSIZE * size])
 	{
 		initEngine();
 
@@ -624,6 +646,7 @@ public:
 	virtual ~transform()
 	{
 		delete[] _x;
+		delete[] _f;
 
 		clearEngine();
 	}

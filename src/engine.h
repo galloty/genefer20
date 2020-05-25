@@ -15,6 +15,7 @@ typedef cl_ulong	uint64;
 typedef cl_long		int64;
 
 #define VSIZE	8
+#define	CSIZE	4
 
 inline uint32 mul_hi(const uint32 a, const uint32 b) { return uint32((uint64(a) * b) >> 32); }
 
