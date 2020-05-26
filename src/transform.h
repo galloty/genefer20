@@ -130,8 +130,7 @@ private:
 	bool _3primes = true;
 	int _lgb = 0;
 	int _b_s = 0;
-	uint32_t _b[VSIZE];
-	uint32_t _b_inv[VSIZE];
+	uint32_2 _bb_inv[VSIZE];
 
 private:
 	inline static int64 garner2(const Zp1 & r1, const Zp2 & r2)
@@ -366,55 +365,78 @@ protected:
 	}
 
 private:
-	void normalize2(Zp1 * const x1, Zp2 * const x2) const
+	void normalize2x() const
 	{
-		const size_t n = this->_n;
-		const Zp1 norm1 = this->_z1.norm;
-		const Zp2 norm2 = this->_z2.norm;
-
-		const uint32 * const b = this->_b;
-		const uint32 * const b_inv = this->_b_inv;
-		const int b_s = this->_b_s;
-
-		int64 * const f = _f;
-
-		for (size_t l = 0; l < VSIZE / CSIZE * n; ++l)
-		{
-			const size_t i = l % VSIZE, j = l / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
-			int64 a = 0;
-			for (size_t c = 0; c < CSIZE; ++c)
-			{
-				const size_t k = k0 + c * VSIZE;
-				a += garner2(x1[k] * norm1, x2[k] * norm2);
-				const int32 r = reduce64(a, b[i], b_inv[i], b_s);
-				x1[k] = Zp1(r); x2[k] = Zp2(r);
-			}
-			f[l] = a;
-		}
-
-		for (size_t l = 0; l < VSIZE / CSIZE * n; ++l)
-		{
-			const size_t i = l % VSIZE, j = l / VSIZE;
-			const bool rot = (j == n / CSIZE - 1);
-			int64 a = rot ? -f[l] : f[l];	// a_0 = -a_n
-			const size_t k0 = rot ? i : (j + 1) * (VSIZE * CSIZE) + i;
-			size_t c;
-			for (c = 0; c < CSIZE - 1; ++c)
-			{
-				const size_t k = k0 + c * VSIZE;
-				a += x1[k].geti();
-				const int32 r = reduce64(a, b[i], b_inv[i], b_s);
-				x1[k] = Zp1(r); x2[k] = Zp2(r);
-				if (a == 0) break;
-			}
-			if (c == CSIZE - 1)
-			{
-				const size_t k = k0 + c * VSIZE;
-				x1[k] += Zp1(int32(a)); x2[k] += Zp2(int32(a));
-				if (abs(a) > 1) throw;
-			}
-		}
+		_engine.writeMemory_x1((uint32 *)this->_z1.x);
+		_engine.writeMemory_x2((uint32 *)this->_z2.x);
+		_engine.normalize2ax();
+		_engine.normalize2bx();
+		_engine.readMemory_x1((uint32 *)this->_z1.x);
+		_engine.readMemory_x2((uint32 *)this->_z2.x);
 	}
+
+private:
+	void normalize2d() const
+	{
+		_engine.writeMemory_d1((uint32 *)this->_z1.d);
+		_engine.writeMemory_d2((uint32 *)this->_z2.d);
+		_engine.normalize2ad();
+		_engine.normalize2bd();
+		_engine.readMemory_d1((uint32 *)this->_z1.d);
+		_engine.readMemory_d2((uint32 *)this->_z2.d);
+	}
+
+// private:
+// 	void normalize2(Zp1 * const x1, Zp2 * const x2) const
+// 	{
+// 		const size_t n = this->_n;
+// 		const Zp1 norm1 = this->_z1.norm;
+// 		const Zp2 norm2 = this->_z2.norm;
+
+// 		const uint32_2 * const bb_inv = this->_bb_inv;
+// 		const int b_s = this->_b_s;
+
+// 		int64 * const f = this->_f;
+
+// 		for (size_t l = 0; l < VSIZE / CSIZE * n; ++l)
+// 		{
+// 			const size_t i = l % VSIZE, j = l / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
+// 			const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
+// 			int64 a = 0;
+// 			for (size_t c = 0; c < CSIZE; ++c)
+// 			{
+// 				const size_t k = k0 + c * VSIZE;
+// 				a += garner2(x1[k] * norm1, x2[k] * norm2);
+// 				const int32 r = reduce64(a, b, b_inv, b_s);
+// 				x1[k] = Zp1(r); x2[k] = Zp2(r);
+// 			}
+// 			f[l] = a;
+// 		}
+
+// 		for (size_t l = 0; l < VSIZE / CSIZE * n; ++l)
+// 		{
+// 			const size_t i = l % VSIZE, j = l / VSIZE;
+// 			const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
+// 			const bool rot = (j == (VSIZE / CSIZE * n) / VSIZE - 1);
+// 			int64 a = rot ? -f[l] : f[l];	// a_0 = -a_n
+// 			const size_t k0 = rot ? i : (j + 1) * (VSIZE * CSIZE) + i;
+// 			size_t c;
+// 			for (c = 0; c < CSIZE - 1; ++c)
+// 			{
+// 				const size_t k = k0 + c * VSIZE;
+// 				a += x1[k].geti();
+// 				const int32 r = reduce64(a, b, b_inv, b_s);
+// 				x1[k] = Zp1(r); x2[k] = Zp2(r);
+// 				if (a == 0) break;
+// 			}
+// 			if (c == CSIZE - 1)
+// 			{
+// 				const size_t k = k0 + c * VSIZE;
+// 				x1[k] += Zp1(int32(a)); x2[k] += Zp2(int32(a));
+// 				if (abs(a) > 1) throw;
+// 			}
+// 		}
+// 	}
 
 private:
 	void normalize3(Zp1 * const x1, Zp2 * const x2, Zp3 * const x3) const
@@ -424,8 +446,7 @@ private:
 		const Zp2 norm2 = this->_z2.norm;
 		const Zp3 norm3 = this->_z3.norm;
 
-		const uint32 * const b = this->_b;
-		const uint32 * const b_inv = this->_b_inv;
+		const uint32_2 * const bb_inv = this->_bb_inv;
 		const int b_s = this->_b_s;
 
 		int64 * const f = _f;
@@ -433,12 +454,13 @@ private:
 		for (size_t l = 0; l < VSIZE / CSIZE * n; ++l)
 		{
 			const size_t i = l % VSIZE, j = l / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
+			const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
 			int96 a = int96_set_si(0);
 			for (size_t c = 0; c < CSIZE; ++c)
 			{
 				const size_t k = k0 + c * VSIZE;
 				a = int96_add(a, garner3(x1[k] * norm1, x2[k] * norm2, x3[k] * norm3));
-				const int32 r = reduce96(a, b[i], b_inv[i], b_s);
+				const int32 r = reduce96(a, b, b_inv, b_s);
 				x1[k] = Zp1(r); x2[k] = Zp2(r); x3[k] = Zp3(r);
 			}
 			f[l] = int64(a.s0);
@@ -447,7 +469,8 @@ private:
 		for (size_t l = 0; l < VSIZE / CSIZE * n; ++l)
 		{
 			const size_t i = l % VSIZE, j = l / VSIZE;
-			const bool rot = (j == n / CSIZE - 1);
+			const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
+			const bool rot = (j == (VSIZE / CSIZE * n) / VSIZE - 1);
 			int64 a = rot ? -f[l] : f[l];	// a_0 = -a_n
 			const size_t k0 = rot ? i : (j + 1) * (VSIZE * CSIZE) + i;
 			size_t c;
@@ -455,7 +478,7 @@ private:
 			{
 				const size_t k = k0 + c * VSIZE;
 				a += x1[k].geti();
-				const int32 r = reduce64(a, b[i], b_inv[i], b_s);
+				const int32 r = reduce64(a, b, b_inv, b_s);
 				x1[k] = Zp1(r); x2[k] = Zp2(r); x3[k] = Zp3(r);
 				if (a == 0) break;
 			}
@@ -522,7 +545,7 @@ private:
 
 			normalize3(z1.x, z2.x, z3.x);
 		}
-		else normalize2(z1.x, z2.x);
+		else normalize2x();
 	}
 
 private:
@@ -557,7 +580,7 @@ private:
 
 			normalize3(z1.x, z2.x, z3.x);
 		}
-		else normalize2(z1.x, z2.x);
+		else normalize2x();
 	}
 
 private:
@@ -607,7 +630,11 @@ private:
 	void initEngine()
 	{
 		std::stringstream src;
-		src << "#define\tVSIZE\t" << VSIZE << std::endl << std::endl;
+		src << "#define\tVSIZE\t" << VSIZE << std::endl;
+		src << "#define\tCSIZE\t" << CSIZE << std::endl << std::endl;
+		src << "#define\tnorm1\t" << _z1.norm.get() << "u" << std::endl;
+		src << "#define\tnorm2\t" << _z2.norm.get() << "u" << std::endl;
+		src << "#define\tnorm3\t" << _z3.norm.get() << "u" << std::endl;
 		src << std::endl;
 
 		// if xxx.cl file is not found then source is src_ocl_xxx string in src/ocl/xxx.h
@@ -668,11 +695,16 @@ public:
 		const int s = _lgb - 1;
 		this->_b_s = s;	// TODO merge _lgb & _b_s
 
+		std::array<uint32_2, VSIZE> bb_inv;
 		for (size_t i = 0; i < VSIZE; ++i)
 		{
-			this->_b[i] = b[i];
-			this->_b_inv[i] = uint32_t((uint64_t(1) << (s + 32)) / b[i]);
+			bb_inv[i].s[0] = b[i];
+			bb_inv[i].s[1] = uint32((uint64(1) << (s + 32)) / b[i]);
+			this->_bb_inv[i] = bb_inv[i];
 		}
+
+		_engine.writeMemory_b(bb_inv.data());
+		_engine.setParam_bs(s);
 
 		_engine.reset_P1(a);
 		_engine.reset_P2(a);
@@ -692,17 +724,17 @@ public:
 	void powMod() const
 	{
 		initMultiplicand();
-		const uint32 * const b = this->_b;
+		const uint32_2 * const bb_inv = this->_bb_inv;
 		for (int j = this->_lgb - 1; j >= 0; --j)
 		{
 			squareMod();
 			uint64 c = 0;
 			for (size_t i = 0; i < VSIZE; ++i)
 			{
-				const uint64 ci = ((b[i] & (uint32(1) << j)) != 0) ? 1 : 0;
+				const uint64 ci = ((bb_inv[i].s[0] & (uint32(1) << j)) != 0) ? 1 : 0;
 				c |= ci << i;
 			}
-			mulMod(c);
+			if (c != 0) mulMod(c);
 		}
 	}
 
@@ -745,7 +777,7 @@ public:
 
 			normalize3(z1.d, z2.d, z3.d);
 		}
-		else normalize2(z1.d, z2.d);
+		else normalize2d();
 	}
 
 public:
@@ -793,7 +825,7 @@ public:
 
 			normalize3(z1.d, z2.d, z3.d);
 		}
-		else normalize2(z1.d, z2.d);
+		else normalize2d();
 	}
 
 public:
@@ -803,8 +835,7 @@ public:
 		const Zp1 * const x1 = this->_z1.x;
 		uint32 * const x = this->_x;
 
-		const uint32 * const b = this->_b;
-		const uint32 * const b_inv = this->_b_inv;
+		const uint32_2 * const bb_inv = this->_bb_inv;
 		const int b_s = this->_b_s;
 
 		int64 f[VSIZE];
@@ -814,13 +845,15 @@ public:
 		{
 			const size_t i = k % VSIZE;
 			f[i] += x1[k].geti();
-			int32 r = reduce64(f[i], b[i], b_inv[i], b_s);
-			if (r < 0) { r += b[i]; f[i] -= 1; }
+			const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
+			int32 r = reduce64(f[i], b, b_inv, b_s);
+			if (r < 0) { r += b; f[i] -= 1; }
 			x[k] = uint32(r);
 		}
 
 		for (size_t i = 0; i < VSIZE; ++i)
 		{
+			const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
 			while (f[i] != 0)
 			{
 				f[i] = -f[i];		// a_0 = -a_n
@@ -828,8 +861,8 @@ public:
 				{
 					const size_t k = VSIZE * j + i;
 					f[i] += x[k];
-					int32 r = reduce64(f[i], b[i], b_inv[i], b_s);
-					if (r < 0) { r += b[i]; f[i] -= 1; }
+					int32 r = reduce64(f[i], b, b_inv, b_s);
+					if (r < 0) { r += b; f[i] -= 1; }
 					x[k] = uint32(r);
 					if (f[i] == 0) break;
 				}
@@ -845,14 +878,14 @@ public:
 			const uint32 x0 = x[i];
 			bool isPrime = (x0 == 1);
 			uint64_t r64 = x0;
-			uint64 bi = b[i];
+			uint64 bi = b;
 			for (size_t j = 1; j < n; ++j)
 			{
 				const size_t k = VSIZE * j + i;
 				const uint32 xk = x[k];
 				isPrime &= (xk == 0);
 				r64 += xk * bi;
-				bi *= b[i];
+				bi *= b;
 			}
 			res64[i] = r64;
 
@@ -868,8 +901,7 @@ public:
 		const Zp1 * const d1 = this->_z1.d;
 		uint32 * const x = this->_x;
 
-		const uint32 * const b = this->_b;
-		const uint32 * const b_inv = this->_b_inv;
+		const uint32_2 * const bb_inv = this->_bb_inv;
 		const int b_s = this->_b_s;
 
 		int64 f[VSIZE];
@@ -880,8 +912,9 @@ public:
 			const size_t i = k % VSIZE;
 			const int64 e = x1[k].geti() * int64(a) - d1[k].geti();
 			f[i] += e;
-			int32 r = reduce64(f[i], b[i], b_inv[i], b_s);
-			if (r < 0) { r += b[i]; f[i] -= 1; }
+			const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
+			int32 r = reduce64(f[i], b, b_inv, b_s);
+			if (r < 0) { r += b; f[i] -= 1; }
 			x[k] = uint32(r);
 		}
 
@@ -889,13 +922,14 @@ public:
 		{
 			while (f[i] != 0)
 			{
+				const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
 				f[i] = -f[i];		// a_0 = -a_n
 				for (size_t j = 0; j < n; ++j)
 				{
 					const size_t k = VSIZE * j + i;
 					f[i] += x[k];
-					int32 r = reduce64(f[i], b[i], b_inv[i], b_s);
-					if (r < 0) { r += b[i]; f[i] -= 1; }
+					int32 r = reduce64(f[i], b, b_inv, b_s);
+					if (r < 0) { r += b; f[i] -= 1; }
 					x[k] = uint32(r);
 					if (f[i] == 0) break;
 				}
