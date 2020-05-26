@@ -11,6 +11,63 @@ typedef ulong	uint64;
 typedef long 	int64;
 typedef uint2	uint32_2;
 
+typedef struct { uint64 s0; uint32 s1; } uint96;
+typedef struct { uint64 s0; int32  s1; } int96;
+
+inline int96 int96_set_si(const int64 n) { int96 r; r.s0 = (uint64)n; r.s1 = (n < 0) ? -1 : 0; return r; }
+
+inline uint96 uint96_set(const uint64 s0, const uint32 s1) { uint96 r; r.s0 = s0; r.s1 = s1; return r; }
+
+inline int96 uint96_i(const uint96 x) { int96 r; r.s0 = x.s0; r.s1 = (int32)x.s1; return r; }
+inline uint96 int96_u(const int96 x) { uint96 r; r.s0 = x.s0; r.s1 = (uint32)x.s1; return r; }
+
+inline bool int96_is_neg(const int96 x) { return (x.s1 < 0); }
+
+inline bool uint96_is_greater(const uint96 x, const uint96 y) { return (x.s1 > y.s1) || ((x.s1 == y.s1) && (x.s0 > y.s0)); }
+
+inline int96 int96_neg(const int96 x)
+{
+	const int32 c = (x.s0 != 0) ? 1 : 0;
+	int96 r; r.s0 = -x.s0; r.s1 = -x.s1 - c;
+	return r;
+}
+
+inline int96 int96_add(const int96 x, const int96 y)
+{
+	const uint64 s0 = x.s0 + y.s0;
+	const int32 c = (s0 < y.s0) ? 1 : 0;
+	int96 r; r.s0 = s0; r.s1 = x.s1 + y.s1 + c;
+	return r;
+}
+
+inline uint96 uint96_add_64(const uint96 x, const uint64 y)
+{
+	const uint64 s0 = x.s0 + y;
+	const uint32 c = (s0 < y) ? 1 : 0;
+	uint96 r; r.s0 = s0; r.s1 = x.s1 + c;
+	return r;
+}
+
+inline int96 uint96_subi(const uint96 x, const uint96 y)
+{
+	const uint32 c = (x.s0 < y.s0) ? 1 : 0;
+	int96 r; r.s0 = x.s0 - y.s0; r.s1 = (int32)(x.s1 - y.s1 - c);
+	return r;
+}
+
+inline uint96 uint96_mul_64_32(const uint64 x, const uint32 y)
+{
+	const uint64 l = (uint32)x * (uint64)y, h = (x >> 32) * y + (l >> 32);
+	uint96 r; r.s0 = (h << 32) | (uint32)l; r.s1 = (uint32)(h >> 32);
+	return r;
+}
+
+inline uint96 int96_abs(const int96 x)
+{
+	const int96 t = (int96_is_neg(x)) ? int96_neg(x) : x;
+	return int96_u(t);
+}
+
 #define P1			4253024257u		// 507 * 2^23 + 1
 #define P2			4194304001u		// 125 * 2^25 + 1
 #define P3			4076863489u		// 243 * 2^24 + 1
@@ -22,6 +79,10 @@ typedef uint2	uint32_2;
 #define InvP3_P2	2995931465u		// 1 / P3 mod P2
 #define P1P2		(P1 * (uint64)P2)
 #define P2P3		(P2 * (uint64)P3)
+#define P1P2P3l		15383592652180029441ul
+#define P1P2P3h		3942432002u
+#define P1P2P3_2l	7691796326090014720ul
+#define P1P2P3_2h	1971216001u
 
 inline uint32 _addMod(const uint32 lhs, const uint32 rhs, const uint32 p)
 {
@@ -67,6 +128,17 @@ inline int64 garner2(const uint32 r1, const uint32 r2)
 	const uint32 u12 = mul_P1(sub_P1(r1, r2), InvP2_P1);
 	const uint64 n = r2 + u12 * (uint64)P2;
 	return (n > P1P2 / 2) ? (int64)(n - P1P2) : (int64)n;
+}
+
+inline static int96 garner3(const uint32 r1, const uint32 r2, const uint32 r3)
+{
+	const uint32 u13 = mul_P1(sub_P1(r1, r3), InvP3_P1);
+	const uint32 u23 = mul_P2(sub_P2(r2, r3), InvP3_P2);
+	const uint32 u123 = mul_P1(sub_P1(u13, u23), InvP2_P1);
+	const uint96 n = uint96_add_64(uint96_mul_64_32(P2P3, u123), u23 * (uint64)P3 + r3);
+	const uint96 P1P2P3 = uint96_set(P1P2P3l, P1P2P3h), P1P2P3_2 = uint96_set(P1P2P3_2l, P1P2P3_2h);
+	const int96 r = uint96_is_greater(n, P1P2P3_2) ? uint96_subi(n, P1P2P3) : uint96_i(n);
+	return r;
 }
 
 __kernel
@@ -260,14 +332,30 @@ inline int32 reduce64(int64 * f, const uint32 b, const uint32 b_inv, const int b
 	// 2- t < 2^22 b^2 => t_h < b^2 / 2^7. If 2 <= b < 32 then t_h < 32^2 / 2^7 = 2^8 < 2^29 b
 	const uint64 t = abs(*f);
 	const uint64 t_h = t >> 29;
-	const uint32 t_l = (uint32)t & (((uint32)1 << 29) - 1);
+	const uint32 t_l = (uint32)t & ((1u << 29) - 1);
 
 	uint32 d_h, r_h = barrett(t_h, b, b_inv, b_s, &d_h);
 	uint32 d_l, r_l = barrett(((uint64)r_h << 29) | t_l, b, b_inv, b_s, &d_l);
 	const uint64 d = ((uint64)d_h << 29) | d_l;
 
-	const bool s = ((*f) < 0);
+	const bool s = (*f < 0);
 	*f = s ? -(int64)d : (int64)d;
+	const int32 r = s ? -(int32)r_l : (int32)r_l;
+	return r;
+}
+
+inline int32 reduce96(int96 * f, const uint32 b, const uint32 b_inv, const int b_s)
+{
+	const uint96 t = int96_abs(*f);
+	const uint64 t_h = ((uint64)t.s1 << (64 - 29)) | (t.s0 >> 29);
+	const uint32 t_l = (uint32)t.s0 & ((1u << 29) - 1);
+
+	uint32 d_h, r_h = barrett(t_h, b, b_inv, b_s, &d_h);
+	uint32 d_l, r_l = barrett(((uint64)r_h << 29) | t_l, b, b_inv, b_s, &d_l);
+	const uint64 d = ((uint64)d_h << 29) | d_l;
+
+	const bool s = int96_is_neg(*f);
+	*f = int96_set_si(s ? -(int64)d : (int64)d);
 	const int32 r = s ? -(int32)r_l : (int32)r_l;
 	return r;
 }
@@ -295,11 +383,11 @@ void normalize2b(const __global uint32_2 * restrict const bb_inv, const __global
 				 __global uint32 * restrict const z1, __global uint32 * restrict const z2, const int b_s)
 {
 	const size_t id = get_global_id(0);
-	const size_t i = id % VSIZE, j = id / VSIZE;
+	const size_t i = id % VSIZE, j = (id / VSIZE + 1) & (get_global_size(0) / VSIZE - 1);
+	int64 a = f[id];
 	const uint32 b = bb_inv[i].s0, b_inv = bb_inv[i].s1;
-	const bool rot = (j == get_global_size(0) / VSIZE - 1);
-	int64 a = rot ? -f[id] : f[id];	// a_0 = -a_n
-	const size_t k0 = rot ? i : (j + 1) * (VSIZE * CSIZE) + i;	// TODO get_global_size(0) / VSIZE is a power of to => use & (N-1)
+	const size_t k0 = j * (VSIZE * CSIZE) + i;
+	if (j == 0) a = -a;	// a_0 = -a_n
 	size_t c;
 	for (c = 0; c < CSIZE - 1; ++c)
 	{
@@ -313,6 +401,51 @@ void normalize2b(const __global uint32_2 * restrict const bb_inv, const __global
 	{
 		const size_t k = k0 + c * VSIZE;
 		z1[k] = add_P1(z1[k], seti_P1((int32)a)); z2[k] = add_P2(z2[k], seti_P2((int32)a));
+		// if (abs(a) > 1) throw;
+	}
+}
+
+__kernel
+void normalize3a(const __global uint32_2 * restrict const bb_inv, __global int64 * restrict const f,
+				 __global uint32 * restrict const z1, __global uint32 * restrict const z2, __global uint32 * restrict const z3, const int b_s)
+{
+	const size_t id = get_global_id(0);
+	const size_t i = id % VSIZE, j = id / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
+	const uint32 b = bb_inv[i].s0, b_inv = bb_inv[i].s1;
+	int96 a = int96_set_si(0);
+	for (size_t c = 0; c < CSIZE; ++c)
+	{
+		const size_t k = k0 + c * VSIZE;
+		a = int96_add(a, garner3(mul_P1(z1[k], norm1), mul_P2(z2[k], norm2), mul_P3(z3[k], norm3)));
+		const int32 r = reduce96(&a, b, b_inv, b_s);
+		z1[k] = seti_P1(r); z2[k] = seti_P2(r); z3[k] = seti_P3(r);
+	}
+	f[id] = (int64)a.s0;
+}
+
+__kernel
+void normalize3b(const __global uint32_2 * restrict const bb_inv, const __global int64 * restrict const f,
+				 __global uint32 * restrict const z1, __global uint32 * restrict const z2, __global uint32 * restrict const z3, const int b_s)
+{
+	const size_t id = get_global_id(0);
+	const size_t i = id % VSIZE, j = (id / VSIZE + 1) & (get_global_size(0) / VSIZE - 1);
+	int64 a = f[id];
+	const uint32 b = bb_inv[i].s0, b_inv = bb_inv[i].s1;
+	const size_t k0 = j * (VSIZE * CSIZE) + i;
+	if (j == 0) a = -a;	// a_0 = -a_n
+	size_t c;
+	for (c = 0; c < CSIZE - 1; ++c)
+	{
+		const size_t k = k0 + c * VSIZE;
+		a += geti_P1(z1[k]);
+		const int32 r = reduce64(&a, b, b_inv, b_s);
+		z1[k] = seti_P1(r); z2[k] = seti_P2(r); z3[k] = seti_P3(r);
+		if (a == 0) break;
+	}
+	if (c == CSIZE - 1)
+	{
+		const size_t k = k0 + c * VSIZE;
+		z1[k] = add_P1(z1[k], seti_P1((int32)a)); z2[k] = add_P2(z2[k], seti_P2((int32)a)); z3[k] = add_P3(z3[k], seti_P3((int32)a));
 		// if (abs(a) > 1) throw;
 	}
 }

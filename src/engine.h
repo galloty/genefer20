@@ -15,76 +15,8 @@ typedef cl_ulong	uint64;
 typedef cl_long		int64;
 typedef cl_uint2	uint32_2;
 
-#define VSIZE	8
+#define VSIZE	32
 #define	CSIZE	4
-
-inline uint32 mul_hi(const uint32 a, const uint32 b) { return uint32((uint64(a) * b) >> 32); }
-
-struct uint96
-{
-	uint64 s0;
-	uint32 s1;
-};
-
-struct int96
-{
-	uint64 s0;
-	int32  s1;
-};
-
-inline int96 int96_set_si(const int64 n) { int96 r; r.s0 = uint64(n); r.s1 = (n < 0) ? -1 : 0; return r; }
-
-inline uint96 uint96_set(const uint64 s0, const uint32 s1) { uint96 r; r.s0 = s0; r.s1 = s1; return r; }
-
-inline int96 uint96_i(const uint96 x) { int96 r; r.s0 = x.s0; r.s1 = int32(x.s1); return r; }
-inline uint96 int96_u(const int96 x) { uint96 r; r.s0 = x.s0; r.s1 = uint32(x.s1); return r; }
-
-inline bool int96_is_neg(const int96 x) { return (x.s1 < 0); }
-
-inline bool uint96_is_greater(const uint96 x, const uint96 y) { return (x.s1 > y.s1) || ((x.s1 == y.s1) && (x.s0 > y.s0)); }
-
-inline int96 int96_neg(const int96 x)
-{
-	const int32 c = (x.s0 != 0) ? 1 : 0;
-	int96 r; r.s0 = -x.s0; r.s1 = -x.s1 - c;
-	return r;
-}
-
-inline int96 int96_add(const int96 x, const int96 y)
-{
-	const uint64 s0 = x.s0 + y.s0;
-	const int32 c = (s0 < y.s0) ? 1 : 0;
-	int96 r; r.s0 = s0; r.s1 = x.s1 + y.s1 + c;
-	return r;
-}
-
-inline uint96 uint96_add_64(const uint96 x, const uint64 y)
-{
-	const uint64 s0 = x.s0 + y;
-	const uint32 c = (s0 < y) ? 1 : 0;
-	uint96 r; r.s0 = s0; r.s1 = x.s1 + c;
-	return r;
-}
-
-inline int96 uint96_subi(const uint96 x, const uint96 y)
-{
-	const uint32 c = (x.s0 < y.s0) ? 1 : 0;
-	int96 r; r.s0 = x.s0 - y.s0; r.s1 = int32(x.s1 - y.s1 - c);
-	return r;
-}
-
-inline uint96 uint96_mul_64_32(const uint64 x, const uint32 y)
-{
-	const uint64 l = uint64(uint32(x)) * y, h = (x >> 32) * y + (l >> 32);
-	uint96 r; r.s0 = (h << 32) | uint32(l); r.s1 = uint32(h >> 32);
-	return r;
-}
-
-inline uint96 int96_abs(const int96 x)
-{
-	const int96 t = (int96_is_neg(x)) ? int96_neg(x) : x;
-	return int96_u(t);
-}
 
 class engine : public ocl::device
 {
@@ -123,7 +55,7 @@ private:
 	cl_kernel _mul2cond_P1 = nullptr, _mul2cond_P2 = nullptr, _mul2cond_P3 = nullptr;
 	cl_kernel  _forward2_P1 = nullptr, _forward2_P2 = nullptr, _forward2_P3 = nullptr;
 	cl_kernel  _backward2_P1 = nullptr, _backward2_P2 = nullptr, _backward2_P3 = nullptr;
-	cl_kernel _normalize2a = nullptr, _normalize2b = nullptr;
+	cl_kernel _normalize2a = nullptr, _normalize2b = nullptr, _normalize3a = nullptr, _normalize3b = nullptr;
 
 public:
 	engine(const ocl::platform & platform, const size_t d) : ocl::device(platform, d) {}
@@ -218,6 +150,14 @@ public:
 		_normalize2b = _createKernel("normalize2b");
 		_setKernelArg(_normalize2b, 0, sizeof(cl_mem), &_bb_inv);
 		_setKernelArg(_normalize2b, 1, sizeof(cl_mem), &_f);
+
+		_normalize3a = _createKernel("normalize3a");
+		_setKernelArg(_normalize3a, 0, sizeof(cl_mem), &_bb_inv);
+		_setKernelArg(_normalize3a, 1, sizeof(cl_mem), &_f);
+
+		_normalize3b = _createKernel("normalize3b");
+		_setKernelArg(_normalize3b, 0, sizeof(cl_mem), &_bb_inv);
+		_setKernelArg(_normalize3b, 1, sizeof(cl_mem), &_f);
 	}
 
 public:
@@ -233,7 +173,7 @@ public:
 		_releaseKernel(_mul2cond_P1); _releaseKernel(_mul2cond_P2); _releaseKernel(_mul2cond_P3);
 		_releaseKernel(_forward2_P1); _releaseKernel(_forward2_P2); _releaseKernel(_forward2_P3);
 		_releaseKernel(_backward2_P1); _releaseKernel(_backward2_P2); _releaseKernel(_backward2_P3);
-		_releaseKernel(_normalize2a); _releaseKernel(_normalize2b);
+		_releaseKernel(_normalize2a); _releaseKernel(_normalize2b); _releaseKernel(_normalize3a); _releaseKernel(_normalize3b);
 	}
 
 public:
@@ -241,6 +181,8 @@ public:
 	{
 		_setKernelArg(_normalize2a, 4, sizeof(int32), &s);
 		_setKernelArg(_normalize2b, 4, sizeof(int32), &s);
+		_setKernelArg(_normalize3a, 5, sizeof(int32), &s);
+		_setKernelArg(_normalize3b, 5, sizeof(int32), &s);
 	}
 
 public:
@@ -570,4 +512,33 @@ public:
 		_executeKernel(_normalize2b, VSIZE / CSIZE * _size);
 	}
 
+public:
+	void normalize3ax()
+	{
+		_setKernelArg(_normalize3a, 2, sizeof(cl_mem), &_z1.x);
+		_setKernelArg(_normalize3a, 3, sizeof(cl_mem), &_z2.x);
+		_setKernelArg(_normalize3a, 4, sizeof(cl_mem), &_z3.x);
+		_executeKernel(_normalize3a, VSIZE / CSIZE * _size);
+	}
+	void normalize3bx()
+	{
+		_setKernelArg(_normalize3b, 2, sizeof(cl_mem), &_z1.x);
+		_setKernelArg(_normalize3b, 3, sizeof(cl_mem), &_z2.x);
+		_setKernelArg(_normalize3b, 4, sizeof(cl_mem), &_z3.x);
+		_executeKernel(_normalize3b, VSIZE / CSIZE * _size);
+	}
+	void normalize3ad()
+	{
+		_setKernelArg(_normalize3a, 2, sizeof(cl_mem), &_z1.d);
+		_setKernelArg(_normalize3a, 3, sizeof(cl_mem), &_z2.d);
+		_setKernelArg(_normalize3a, 4, sizeof(cl_mem), &_z3.d);
+		_executeKernel(_normalize3a, VSIZE / CSIZE * _size);
+	}
+	void normalize3bd()
+	{
+		_setKernelArg(_normalize3b, 2, sizeof(cl_mem), &_z1.d);
+		_setKernelArg(_normalize3b, 3, sizeof(cl_mem), &_z2.d);
+		_setKernelArg(_normalize3b, 4, sizeof(cl_mem), &_z3.d);
+		_executeKernel(_normalize3b, VSIZE / CSIZE * _size);
+	}
 };
