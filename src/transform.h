@@ -94,18 +94,13 @@ private:
 	{
 		Zp * const x;
 		Zp * const y;
-		// Zp * const wr;
-		// Zp * const wri;
 		Zp * const d;
-		// const Zp norm;
 
-		Szp(const size_t n) : x(new Zp[VSIZE * n]), y(new Zp[VSIZE * n]), /*wr(new Zp[n]), wri(new Zp[n]),*/ d(new Zp[VSIZE * n]) {}
+		Szp(const size_t n) : x(new Zp[VSIZE * n]), y(new Zp[VSIZE * n]), d(new Zp[VSIZE * n]) {}
 		virtual ~Szp() 
 		{
 			delete[] x;
 			delete[] y;
-			// delete[] wr;
-			// delete[] wri;
 			delete[] d;
 		}
 	};
@@ -148,44 +143,14 @@ private:
 	}
 
 private:
-	inline static uint32 mul_hi(const uint32 a, const uint32 b) { return uint32((uint64(a) * b) >> 32); }
-
-private:
-	static uint32 barrett(const uint64 a, const uint32 b, const uint32 b_inv, const int b_s, uint32 & a_p)
+	static int32 reduce64f(int64 & f, const uint32 b)
 	{
-		// n = 31, alpha = 2^{n-2} = 2^29, s = r - 2, t = n + 1 = 32 => h = 1.
-		// b < 2^31, alpha = 2^29 => a < 2^29 b
-		// 2^{r-1} < b <= 2^r then a < 2^{r + 29} = 2^{s + 31} and (a >> s) < 2^31
-		// b_inv = [2^{s + 32} / b]
-		// b_inv < 2^{s + 32} / b < 2^{s + 32} / 2^{r-1} = 2^{s + 32} / 2^{s + 1} < 2^31
-		// Let h be the number of iterations in Barrett's reduction, we have h = [a / b] - [[a / 2^s] b_inv / 2^32].
-		// h = ([a/b] - a/b) + a/2^{s + 32} (2^{s + 32}/b - b_inv) + b_inv/2^32 (a/2^s - [a/2^s]) + ([a/2^s] b_inv / 2^32 - [[a/2^s] b_inv / 2^32])
-		// Then -1 + 0 + 0 + 0 < h < 0 + 1/2 (2^{s + 32}/b - b_inv) + b_inv/2^32 + 1,
-		// 0 <= h < 1 + 1/2 + 1/2 => h = 1.
-
-		const uint32 d = mul_hi(uint32(a >> b_s), b_inv), r = uint32(a) - d * b;
-		const bool o = (r >= b);
-		a_p = o ? d + 1 : d;
-		return o ? r - b : r;
-	}
-
-protected:
-	static int32 reduce64(int64 & f, const uint32 b, const uint32 b_inv, const int b_s)
-	{
-		// 1- t < 2^63 => t_h < 2^34. We must have t_h < 2^29 b => b > 32
-		// 2- t < 2^22 b^2 => t_h < b^2 / 2^7. If 2 <= b < 32 then t_h < 32^2 / 2^7 = 2^8 < 2^29 b
-		const uint64 t = std::abs(f);
-		const uint64 t_h = t >> 29;
-		const uint32 t_l = uint32(t) & ((uint32(1) << 29) - 1);
-
-		uint32 d_h, r_h = barrett(t_h, b, b_inv, b_s, d_h);
-		uint32 d_l, r_l = barrett((uint64(r_h) << 29) | t_l, b, b_inv, b_s, d_l);
-		const uint64 d = (uint64(d_h) << 29) | d_l;
-
+		uint64 t = std::abs(f);
+		int32 d = 0;
+		while (t >= b) { t -= b; ++d; }
 		const bool s = (f < 0);
-		f = s ? -int64(d) : int64(d);
-		const int32 r = s ? -int32(r_l) : int32(r_l);
-		return r;
+		f = s ? -d : d;
+		return s ? -int32(t) : int32(t);
 	}
 
 private:
@@ -473,50 +438,226 @@ public:
 	bool gerbiczCheck(const uint32_t a) const
 	{
 		const size_t n = this->_n;
-		const Zp1 * const x1 = this->_z1.x;
-		const Zp1 * const d1 = this->_z1.d;
-		uint32 * const x = this->_x;
+		const Zp1 * const x = this->_z1.x;
+		Zp1 * const d = this->_z1.d;
 
 		const uint32_2 * const bb_inv = this->_bb_inv;
-		const int b_s = this->_b_s;
 
 		_engine.readMemory_x1((uint32 *)this->_z1.x);
 		_engine.readMemory_d1((uint32 *)this->_z1.d);
 
-		int64 f[VSIZE];
-		for (size_t i = 0; i < VSIZE; ++i) f[i] = 0;
+		std::vector<int32> vf1(VSIZE / CSIZE * n);
+		// std::vector<int32> vf2(VSIZE / CSIZE * n);
+		int32 * f1 = vf1.data();
+		// int32 * f2 = vf2.data();
 
-		for (size_t k = 0; k < VSIZE * n; ++k)
+		// int32 e_min = 1000, e_max = -1000;
+		for (size_t id = 0; id < VSIZE / CSIZE * n; ++id)
 		{
-			const size_t i = k % VSIZE;
-			const int64 e = x1[k].geti() * int64(a) - d1[k].geti();
-			f[i] += e;
-			const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
-			int32 r = reduce64(f[i], b, b_inv, b_s);
-			if (r < 0) { r += b; f[i] -= 1; }
-			x[k] = uint32(r);
+			const size_t i = id % VSIZE, j = id / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
+			const uint32 b = bb_inv[i].s[0];
+			int64 e = 0;
+			for (size_t c = 0; c < CSIZE; ++c)
+			{
+				const size_t k = k0 + c * VSIZE;
+				e += x[k].geti() * int64(a) - d[k].geti();
+				int32 r = reduce64f(e, b);
+				if (r < 0) { r += b; --e; }	// TODO add to reduce64f
+				d[k] = Zp1(r);
+			}
+			const size_t idn = (id + VSIZE) & ((VSIZE / CSIZE * n) - 1);
+			if (idn < VSIZE) e = -e;	// a_0 = -a_n
+			f1[idn] = int32(e);			// |e| <= 3
+			// if (int32(e) < e_min) e_min = e;
+			// if (int32(e) > e_max) e_max = e;
 		}
+		// std::cout << "e_min = " << e_min << ", e_max = " << e_max << std::endl;
 
+#define	ESIZE	1
+
+		int maxnbloops = 0;
 		for (size_t i = 0; i < VSIZE; ++i)
 		{
-			while (f[i] != 0)
+			const uint32 b = bb_inv[i].s[0];
+			int32 e[ESIZE];
+			for (size_t u = 0; u < ESIZE; ++u)
 			{
-				const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
-				f[i] = -f[i];		// a_0 = -a_n
-				for (size_t j = 0; j < n; ++j)
+				int32 eu = 0;
+				for (size_t v = 0; v < n / CSIZE / ESIZE; ++v)
 				{
-					const size_t k = VSIZE * j + i;
-					f[i] += x[k];
-					int32 r = reduce64(f[i], b, b_inv, b_s);
-					if (r < 0) { r += b; f[i] -= 1; }
-					x[k] = uint32(r);
-					if (f[i] == 0) break;
+					const size_t l = u * (n / CSIZE / ESIZE) + v;
+					eu += f1[l * VSIZE + i];
+					if (eu != 0)
+					{
+						for (size_t j = 0; j < CSIZE; ++j)
+						{
+							const size_t k = (l * CSIZE + j) * VSIZE + i;
+							int32 r = eu + d[k].geti();
+							eu = 0;
+							if (r < 0) { r += b; --eu; }
+							else if (uint32(r) >= b) { r -= b; ++eu; }
+							d[k] = Zp1(r);
+							if (eu == 0) break;
+						}
+					}
 				}
+				e[u] = eu;
 			}
+			int nbloops = 0;
+			bool again;
+			do
+			{
+				again = false;
+				int32 e2[ESIZE];
+				for (size_t u = 0; u < ESIZE; ++u)
+				{
+					int32 eu = e[(u - 1) & (ESIZE - 1)];
+					if (eu == 0) { e2[u] = 0; continue; }
+					if (u == 0) eu = -eu;		// a_0 = -a_n
+					for (size_t v = 0; v < n / ESIZE; ++v)
+					{
+						const size_t j = u * (n / ESIZE) + v;
+						const size_t k = VSIZE * j + i;
+						int32 r = eu + d[k].geti();
+						eu = 0;
+						if (r < 0) { r += b; --eu; }
+						else if (uint32(r) >= b) { r -= b; ++eu; }
+						d[k] = Zp1(r);
+						if (eu == 0) break;
+					}
+					e2[u] = eu;
+					if (eu != 0) again = true;
+				}
+				for (size_t u = 0; u < ESIZE; ++u) e[u] = e2[u];
+				++nbloops;
+			} while (again);
+			if (nbloops > maxnbloops) maxnbloops = nbloops;
 		}
+		std::cout << maxnbloops << " loop(s)" << std::endl;
 
-		for (size_t k = 0; k < VSIZE * n; ++k) if (x[k] != 0) return false;
-		return true;
+		// int nbloops = 0;
+		// bool again;
+		// do
+		// {
+		// 	again = false;
+		// 	for (size_t id = 0; id < VSIZE / CSIZE * n; ++id)
+		// 	{
+		// 		const size_t i = id % VSIZE, j = id / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
+		// 		const uint32 b = bb_inv[i].s[0];
+		// 		int64 e = f1[id];
+		// 		const size_t idn = (id + VSIZE) & ((VSIZE / CSIZE * n) - 1);
+		// 		if (e == 0)
+		// 		{
+		// 			f2[idn] = 0;
+		// 			continue;
+		// 		}
+		// 		size_t c;
+		// 		// for (c = 0; c < CSIZE; ++c)
+		// 		for (c = 0; c < CSIZE - 1; ++c)
+		// 		{
+		// 			const size_t k = k0 + c * VSIZE;
+		// 			e += d[k].geti();
+		// 			int32 r = reduce64f(e, b);
+		// 			if (r < 0) { r += b; --e; }
+		// 			d[k] = Zp1(r);
+		// 			if (e == 0) break;
+		// 		}
+		// 		// if (idn < VSIZE) e = -e;	// a_0 = -a_n
+		// 		// f2[idn] = int32(e);
+		// 		// if (e != 0)
+		// 		// {
+		// 		// 	if (again == false) ++nbloops;
+		// 		// 	again = true;
+		// 		// }
+		// 		if (e != 0)	//c == CSIZE - 1)
+		// 		{
+		// 			const size_t k = k0 + c * VSIZE;
+		// 			e += d[k].geti(); 
+		// 			d[k] = Zp1(int32(e));
+		// 			if (e < -1) std::cout << "1: " << k << ": " << e << std::endl;
+		// 			if (e > (int)b) std::cout << "1: " << k << ": " << e << std::endl;
+		// 		}
+		// 	}
+		// 	int32 * f = f1; f1 = f2; f2 = f;
+		// } while (again);
+		// std::cout << nbloops << " loops" << std::endl;
+
+		// nbloops = 0;
+		// // bool again;
+		// do
+		// {
+		// 	again = false;
+		// 	for (size_t id = 0; id < VSIZE / CSIZE * n; ++id)
+		// 	{
+		// 		const size_t i = id % VSIZE, j = id / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
+		// 		const uint32 b = bb_inv[i].s[0];
+
+		// 		const size_t km1 = (k0 - VSIZE) & (n * VSIZE - 1);	//(j == 0) ? n - 1 : j - 1;
+		// 		int64 e = d[km1].geti();
+		// 		int32 r = reduce64f(e, b);
+		// 		if (r < 0) { r += b; --e; }
+		// 		d[km1] = Zp1(r);
+		// 		// int32 t = d[km1].geti();
+		// 		// if (t < 0) { d[km1] = Zp1(t + b); --e; }
+		// 		// else if (uint32(t) >= b) { d[km1] = Zp1(uint32(t) - b); ++e; }
+		// 		if (j == 0) e = -e;		// a_0 = -a_n
+		// 		if (e == 0) continue;
+		// 		// const size_t k0 = VSIZE * j + i;
+		// 		size_t c;
+		// 		for (c = 0; c < CSIZE - 1; ++c)
+		// 		{
+		// 			const size_t k = k0 + c * VSIZE;
+		// 			e += d[k].geti();
+		// 			int32 r = reduce64f(e, b);
+		// 			if (r < 0) { r += b; --e; }
+		// 			d[k] = Zp1(r);
+		// 			if (e == 0) break;
+		// 		}
+		// 		if (e != 0)	//= CSIZE - 1)
+		// 		{
+		// 			const size_t k = k0 + c * VSIZE;
+		// 			e += d[k].geti(); 
+		// 			d[k] = Zp1(int32(e));
+		// 			if ((e < 0) || (e >= b))
+		// 			{
+		// 				if (again == false) ++nbloops;
+		// 				again = true;
+		// 			}
+		// 			// if (t < 0) std::cout << "2: " << k << ": " << t << std::endl;
+		// 			// if (t >= b) std::cout << "2: " << k << ": " << t << std::endl;
+		// 		}
+		// 	}
+		// } while (again);
+		// std::cout << nbloops << " loops" << std::endl;
+
+		// for (size_t i = 0; i < VSIZE; ++i)
+		// {
+		// 	const uint32 b = bb_inv[i].s[0];
+		// 	int64 e = 0;	//f[i];
+		// 	do
+		// 	{
+		// 		e = -e;		// a_0 = -a_n
+		// 		for (size_t j = 0; j < n; ++j)
+		// 		{
+		// 			const size_t k = VSIZE * j + i;
+		// 			e += d[k].geti();
+		// 			int32 r = reduce64f(e, b);
+		// 			if (r < 0) { r += b; --e; }
+		// 			d[k] = Zp1(r);
+		// 			// if (d == 0) break;
+		// 		}
+		// 	} while (e != 0);
+		// }
+
+		bool ret = true;
+		for (size_t k = 0; k < VSIZE * n; ++k)
+			if (d[k].get() != 0)
+			{
+				ret = false;
+			}
+
+		_engine.writeMemory_d1((uint32 *)this->_z1.d);
+		return ret;
 	}
 
 public:
@@ -527,7 +668,6 @@ public:
 		uint32 * const x = this->_x;
 
 		const uint32_2 * const bb_inv = this->_bb_inv;
-		const int b_s = this->_b_s;
 
 		_engine.readMemory_x1((uint32 *)this->_z1.x);
 
@@ -538,15 +678,15 @@ public:
 		{
 			const size_t i = k % VSIZE;
 			f[i] += x1[k].geti();
-			const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
-			int32 r = reduce64(f[i], b, b_inv, b_s);
+			const uint32 b = bb_inv[i].s[0];
+			int32 r = reduce64f(f[i], b);
 			if (r < 0) { r += b; f[i] -= 1; }
 			x[k] = uint32(r);
 		}
 
 		for (size_t i = 0; i < VSIZE; ++i)
 		{
-			const uint32 b = bb_inv[i].s[0], b_inv = bb_inv[i].s[1];
+			const uint32 b = bb_inv[i].s[0];
 			while (f[i] != 0)
 			{
 				f[i] = -f[i];		// a_0 = -a_n
@@ -554,7 +694,7 @@ public:
 				{
 					const size_t k = VSIZE * j + i;
 					f[i] += x[k];
-					int32 r = reduce64(f[i], b, b_inv, b_s);
+					int32 r = reduce64f(f[i], b);
 					if (r < 0) { r += b; f[i] -= 1; }
 					x[k] = uint32(r);
 					if (f[i] == 0) break;

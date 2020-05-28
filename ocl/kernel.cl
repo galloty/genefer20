@@ -340,8 +340,7 @@ inline int32 reduce64(int64 * f, const uint32 b, const uint32 b_inv, const int b
 
 	const bool s = (*f < 0);
 	*f = s ? -(int64)d : (int64)d;
-	const int32 r = s ? -(int32)r_l : (int32)r_l;
-	return r;
+	return s ? -(int32)r_l : (int32)r_l;
 }
 
 inline int32 reduce96(int96 * f, const uint32 b, const uint32 b_inv, const int b_s)
@@ -356,8 +355,7 @@ inline int32 reduce96(int96 * f, const uint32 b, const uint32 b_inv, const int b
 
 	const bool s = int96_is_neg(*f);
 	*f = int96_set_si(s ? -(int64)d : (int64)d);
-	const int32 r = s ? -(int32)r_l : (int32)r_l;
-	return r;
+	return s ? -(int32)r_l : (int32)r_l;
 }
 
 __kernel
@@ -395,7 +393,7 @@ void normalize2b(const __global uint32_2 * restrict const bb_inv, const __global
 		a += geti_P1(z1[k]);
 		const int32 r = reduce64(&a, b, b_inv, b_s);
 		z1[k] = seti_P1(r); z2[k] = seti_P2(r);
-		if (a == 0) break;
+		if (a == 0) return;
 	}
 	if (c == CSIZE - 1)
 	{
@@ -440,7 +438,7 @@ void normalize3b(const __global uint32_2 * restrict const bb_inv, const __global
 		a += geti_P1(z1[k]);
 		const int32 r = reduce64(&a, b, b_inv, b_s);
 		z1[k] = seti_P1(r); z2[k] = seti_P2(r); z3[k] = seti_P3(r);
-		if (a == 0) break;
+		if (a == 0) return;
 	}
 	if (c == CSIZE - 1)
 	{
