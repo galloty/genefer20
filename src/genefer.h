@@ -64,16 +64,6 @@ private:
 		return true;
 	}
 
-protected:
-	void checkError()
-	{
-		const int err = this->_transform->getError();
-		if (err != 0)
-		{
-			throw std::runtime_error("GPU error detected");
-		}
-	}
-
 private:
 	// static void printStatus(transform & t, const bool found, const uint32_t b, const uint32_t n)
 	// {
@@ -115,7 +105,7 @@ public:
 	}
 
 private:
-	bool check(const vint32 & b, const uint32_t a) const
+	bool check(const vint32 & b, const uint32_t a, const bool display) const
 	{
 		const int n = this->_n;
 		const size_t m = size_t(1) << n;
@@ -137,16 +127,18 @@ private:
 		}
 
 		t->powMod();
-
-		bool isPrime[VSIZE];
-		uint64_t r[VSIZE], r64[VSIZE];
-		t->isPrime(isPrime, r, r64);
-
+		t->copyRes();
 		t->gerbiczLastStep();
 
 		for (size_t j = 0; j < L; ++j) t->powMod();
 
+		t->saveRes();
+
 		if (!t->gerbiczCheck(a)) throw std::runtime_error("Gerbicz failed");
+
+		bool isPrime[VSIZE];
+		uint64_t r[VSIZE], r64[VSIZE];
+		t->isPrime(isPrime, r, r64);
 
 		std::ostringstream ssr;
 		for (size_t i = 0; i < VSIZE; ++i)
@@ -166,10 +158,30 @@ private:
 			ssr << std::endl;
 		}
 
-		pio::display(std::string("\r") + ssr.str());
+		if (display) pio::display(std::string("\r") + ssr.str());
 		pio::result(ssr.str());
 
 		return true;
+	}
+
+public:
+	void bench()
+	{
+		const timer::time startTime = timer::currentTime();
+		uint32 bi = 1000000000;
+		for (size_t j = 1; true; ++j)
+		{
+			vint32 b;
+			for (size_t i = 0; i < VSIZE; ++i) { b[i] = bi; bi += 2; }
+			check(b, 2, false);
+			if (j % 1 == 0)
+			{
+				const double elapsedTime = timer::diffTime(timer::currentTime(), startTime);
+				std::cout << std::setprecision(3) << (j * VSIZE / elapsedTime) << " GFN-" << this->_n << "/sec" << std::endl;
+				return;
+			}
+			if (_quit) return;
+		}
 	}
 
 private:
@@ -230,7 +242,7 @@ public:
 
 		for (size_t i = i0; i < n; ++i)
 		{
-			check(bVec[i], 2);
+			check(bVec[i], 2, true);
 
 			if (_isBoinc)
 			{

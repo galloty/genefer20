@@ -185,6 +185,10 @@ public:
 		{
 			gen.checkFile(filename);
 		}
+		else
+		{
+			gen.bench();
+		}
 
 		gen.release();
 

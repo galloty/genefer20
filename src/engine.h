@@ -15,7 +15,7 @@ typedef cl_ulong	uint64;
 typedef cl_long		int64;
 typedef cl_uint2	uint32_2;
 
-#define VSIZE	32
+#define VSIZE	64
 #define	CSIZE	4
 
 class engine : public ocl::device
@@ -48,7 +48,7 @@ private:
 private:
 	size_t _size = 0;
 	Sp _z1, _z2, _z3;
-	cl_mem _bb_inv, _f;
+	cl_mem _res, _bb_inv, _f;
 	cl_kernel _set = nullptr, _swap = nullptr, _reset = nullptr;
 	cl_kernel _square2_P1 = nullptr, _square2_P2 = nullptr, _square2_P3 = nullptr;
 	cl_kernel _mul2_P1 = nullptr, _mul2_P2 = nullptr, _mul2_P3 = nullptr;
@@ -72,6 +72,7 @@ public:
 		_z1.alloc(*this, size);
 		_z2.alloc(*this, size);
 		_z3.alloc(*this, size);
+		_res = _createBuffer(CL_MEM_READ_WRITE, sizeof(uint32) * VSIZE * size);
 		_bb_inv = _createBuffer(CL_MEM_READ_ONLY, sizeof(uint32_2) * VSIZE);
 		_f = _createBuffer(CL_MEM_READ_WRITE, sizeof(int64) * VSIZE / CSIZE * size);
 	}
@@ -88,6 +89,7 @@ public:
 			_z1.release();
 			_z2.release();
 			_z3.release();
+			_releaseBuffer(_res);
 			_releaseBuffer(_bb_inv);
 			_releaseBuffer(_f);
 			_size = 0;
@@ -206,37 +208,8 @@ public:
 
 public:
 	void readMemory_x1(uint32 * const x1) { _readBuffer(_z1.x, x1, sizeof(uint32) * VSIZE * _size); }
-	void readMemory_x2(uint32 * const x2) { _readBuffer(_z2.x, x2, sizeof(uint32) * VSIZE * _size); }
-	void readMemory_x3(uint32 * const x3) { _readBuffer(_z3.x, x3, sizeof(uint32) * VSIZE * _size); }
-
-public:
-	void readMemory_y1(uint32 * const y1) { _readBuffer(_z1.y, y1, sizeof(uint32) * VSIZE * _size); }
-	void readMemory_y2(uint32 * const y2) { _readBuffer(_z2.y, y2, sizeof(uint32) * VSIZE * _size); }
-	void readMemory_y3(uint32 * const y3) { _readBuffer(_z3.y, y3, sizeof(uint32) * VSIZE * _size); }
-
-public:
 	void readMemory_d1(uint32 * const d1) { _readBuffer(_z1.d, d1, sizeof(uint32) * VSIZE * _size); }
-	void readMemory_d2(uint32 * const d2) { _readBuffer(_z2.d, d2, sizeof(uint32) * VSIZE * _size); }
-	void readMemory_d3(uint32 * const d3) { _readBuffer(_z3.d, d3, sizeof(uint32) * VSIZE * _size); }
-
-public:
-	void writeMemory_x1(const uint32 * const x1) { _writeBuffer(_z1.x, x1, sizeof(uint32) * VSIZE * _size); }
-	void writeMemory_x2(const uint32 * const x2) { _writeBuffer(_z2.x, x2, sizeof(uint32) * VSIZE * _size); }
-	void writeMemory_x3(const uint32 * const x3) { _writeBuffer(_z3.x, x3, sizeof(uint32) * VSIZE * _size); }
-
-public:
-	void writeMemory_y1(const uint32 * const y1) { _writeBuffer(_z1.y, y1, sizeof(uint32) * VSIZE * _size); }
-	void writeMemory_y2(const uint32 * const y2) { _writeBuffer(_z2.y, y2, sizeof(uint32) * VSIZE * _size); }
-	void writeMemory_y3(const uint32 * const y3) { _writeBuffer(_z3.y, y3, sizeof(uint32) * VSIZE * _size); }
-
-public:
-	void writeMemory_d1(const uint32 * const d1) { _writeBuffer(_z1.d, d1, sizeof(uint32) * VSIZE * _size); }
-	void writeMemory_d2(const uint32 * const d2) { _writeBuffer(_z2.d, d2, sizeof(uint32) * VSIZE * _size); }
-	void writeMemory_d3(const uint32 * const d3) { _writeBuffer(_z3.d, d3, sizeof(uint32) * VSIZE * _size); }
-
-public:
-	void readMemory_f(int64 * const f) { _readBuffer(_f, f, sizeof(int64) * VSIZE / CSIZE * _size); }
-	// void writeMemory_f(const int64 * const f) { _writeBuffer(_f, f, sizeof(int64) * VSIZE / CSIZE * _size); }
+	void readMemory_res(uint32 * const res) { _readBuffer(_res, res, sizeof(uint32) * VSIZE * _size); }
 
 public:
 	void setxy_P1()
@@ -255,6 +228,14 @@ public:
 	{
 		_setKernelArg(_set, 0, sizeof(cl_mem), &_z3.x);
 		_setKernelArg(_set, 1, sizeof(cl_mem), &_z3.y);
+		_executeKernel(_set, VSIZE * _size);
+	}
+
+public:
+	void setxres_P1()
+	{
+		_setKernelArg(_set, 0, sizeof(cl_mem), &_z1.x);
+		_setKernelArg(_set, 1, sizeof(cl_mem), &_res);
 		_executeKernel(_set, VSIZE * _size);
 	}
 
