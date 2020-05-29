@@ -54,7 +54,6 @@ private:
 		explicit Zp(const int32 i) : _n((i < 0) ? i + p : i) {}
 
 		uint32 get() const { return _n; }
-		int32 geti() const { return (_n > p / 2) ? int32(_n - p) : int32(_n); }
 
 		Zp operator-() const { return Zp((_n != 0) ? p - _n : 0); }
 
@@ -94,8 +93,8 @@ private:
 	const bool _isBoinc;
 	engine & _engine;
 	uint32 * const _x;
-	uint32 * const _gx;
-	uint32 * const _gd;
+	uint32_2 * const _gx;
+	uint32_2 * const _gd;
 	bool _3primes = true;
 	int _b_s = 0;
 	uint32 _b[VSIZE];
@@ -159,14 +158,17 @@ private:
 	void initMultiplicand() const
 	{
 		const size_t n = this->_n;
-		_engine.setxy_P1();
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P1(s, lm);
-		_engine.setxy_P2();
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P2(s, lm);
+
 		if (this->_3primes)
 		{
-			_engine.setxy_P3();
+			_engine.setxy_P123();
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P12(s, lm);
 			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P3(s, lm);
+		}
+		else
+		{
+			_engine.setxy_P12();
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P12(s, lm);
 		}
 	}
 
@@ -175,25 +177,22 @@ private:
 	{
 		const size_t n = this->_n;
 
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P1(s, lm);
-		_engine.square2_P1();
-		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P1(s, lm);
-
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P2(s, lm);
-		_engine.square2_P2();
-		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P2(s, lm);
-
 		if (this->_3primes)
 		{
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P12(s, lm);
 			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P3(s, lm);
+			_engine.square2_P12();
 			_engine.square2_P3();
+			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P12(s, lm);
 			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P3(s, lm);
-
 			_engine.normalize3ax();
 			_engine.normalize3bx();
 		}
 		else
 		{
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P12(s, lm);
+			_engine.square2_P12();
+			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P12(s, lm);
 			_engine.normalize2ax();
 			_engine.normalize2bx();
 		}
@@ -204,13 +203,9 @@ private:
 	{
 		const size_t n = this->_n;
 
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P1(s, lm);
-		_engine.mul2condxy_P1(c);
-		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P1(s, lm);
-
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P2(s, lm);
-		_engine.mul2condxy_P2(c);
-		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P2(s, lm);
+		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P12(s, lm);
+		_engine.mul2condxy_P12(c);
+		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P12(s, lm);
 
 		if (this->_3primes)
 		{
@@ -273,9 +268,9 @@ private:
 
 
 public:
-	transform(const uint32_t size, engine & engine, const bool isBoinc) :
+	transform(const size_t size, engine & engine, const bool isBoinc) :
 		_n(size), _isBoinc(isBoinc), _engine(engine),
-		_x(new uint32[VSIZE * size]), _gx(new uint32[VSIZE * size]), _gd(new uint32[VSIZE * size])
+		_x(new uint32[VSIZE * size]), _gx(new uint32_2[VSIZE * size]), _gd(new uint32_2[VSIZE * size])
 	{
 		const size_t n = this->_n;
 
@@ -294,13 +289,13 @@ public:
 		_engine.allocMemory(this->_n);
 		_engine.createKernels();
 
-		std::vector<uint32> wr(n), wri(n);
-		create<Zp1>(n, wr, wri);
-		_engine.writeMemory_w1(wr.data(), wri.data());
-		create<Zp2>(n, wr, wri);
-		_engine.writeMemory_w2(wr.data(), wri.data());
-		create<Zp3>(n, wr, wri);
-		_engine.writeMemory_w3(wr.data(), wri.data());
+		std::vector<uint32> wr1(n), wr2(n), wr3(n), wri1(n), wri2(n), wri3(n);
+		create<Zp1>(n, wr1, wri1); create<Zp2>(n, wr2, wri2); create<Zp3>(n, wr3, wri3);
+
+		std::vector<uint32_2> wr12(n), wri12(n);
+		for (size_t i = 0; i < n; ++i) { wr12[i].s[0] = wr1[i]; wr12[i].s[1] = wr2[i]; }
+		for (size_t i = 0; i < n; ++i) { wri12[i].s[0] = wri1[i]; wri12[i].s[1] = wri2[i]; }
+		_engine.writeMemory_w(wr12.data(), wr3.data(), wri12.data(), wri3.data());
 	}
 
 public:
@@ -322,8 +317,8 @@ public:
 	void saveRes()
 	{
 		_engine.readMemory_res(this->_x);
-		_engine.readMemory_x1(this->_gx);
-		_engine.readMemory_d1(this->_gd);
+		_engine.readMemory_x12(this->_gx);
+		_engine.readMemory_d12(this->_gd);
 	}
 
 public:
@@ -336,7 +331,7 @@ public:
 		const int32 s = ilog2(bmax) - 1;
 		this->_b_s = s;
 
-		std::array<uint32_2, VSIZE> bb_inv;
+		uint32_2 bb_inv[VSIZE];
 		for (size_t i = 0; i < VSIZE; ++i)
 		{
 			this->_b[i] = b[i];
@@ -356,11 +351,10 @@ public:
 			c[j] = cj;
 		}
 
-		_engine.writeMemory_b(bb_inv.data());
+		_engine.writeMemory_b(bb_inv);
 		_engine.setParam_bs(s);
 
-		_engine.reset_P1(a);
-		_engine.reset_P2(a);
+		_engine.reset_P12(a);
 		if (this->_3primes) _engine.reset_P3(a);
 	}
 
@@ -384,31 +378,27 @@ public:
 	{
 		const size_t n = this->_n;
 
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2d_P1(s, lm);
-		_engine.setxy_P1();
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P1(s, lm);
-		_engine.mul2dy_P1();
-		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2d_P1(s, lm);
-
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2d_P2(s, lm);
-		_engine.setxy_P2();
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P2(s, lm);
-		_engine.mul2dy_P2();
-		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2d_P2(s, lm);
-
 		if (this->_3primes)
 		{
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2d_P12(s, lm);
 			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2d_P3(s, lm);
-			_engine.setxy_P3();
+			_engine.setxy_P123();
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P12(s, lm);
 			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P3(s, lm);
+			_engine.mul2dy_P12();
 			_engine.mul2dy_P3();
+			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2d_P12(s, lm);
 			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2d_P3(s, lm);
-
 			_engine.normalize3ad();
 			_engine.normalize3bd();
 		}
 		else
 		{
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2d_P12(s, lm);
+			_engine.setxy_P12();
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P12(s, lm);
+			_engine.mul2dy_P12();
+			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2d_P12(s, lm);
 			_engine.normalize2ad();
 			_engine.normalize2bd();
 		}
@@ -419,34 +409,29 @@ public:
 	{
 		const size_t n = this->_n;
 
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P1(s, lm);
-		_engine.setdy_P1();
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P1(s, lm);
-		_engine.mul2xy_P1();
-		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P1(s, lm);
-		_engine.swap_xd_P1();
-
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P2(s, lm);
-		_engine.setdy_P2();
-		for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P2(s, lm);
-		_engine.mul2xy_P2();
-		for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P2(s, lm);
-		_engine.swap_xd_P2();
-
 		if (this->_3primes)
 		{
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P12(s, lm);
 			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P3(s, lm);
-			_engine.setdy_P3();
+			_engine.setdy_P123();
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P12(s, lm);
 			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P3(s, lm);
+			_engine.mul2xy_P12();
 			_engine.mul2xy_P3();
+			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P12(s, lm);
 			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P3(s, lm);
-			_engine.swap_xd_P3();
-
+			_engine.swap_xd_P123();
 			_engine.normalize3ad();
 			_engine.normalize3bd();
 		}
 		else
 		{
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2x_P12(s, lm);
+			_engine.setdy_P12();
+			for (size_t lm = ilog2(n / 2), s = 1; s < n; --lm, s *= 2) _engine.forward2y_P12(s, lm);
+			_engine.mul2xy_P12();
+			for (size_t lm = 0, s = n / 2; s > 0; ++lm, s /= 2) _engine.backward2x_P12(s, lm);
+			_engine.swap_xd_P12();
 			_engine.normalize2ad();
 			_engine.normalize2bd();
 		}
@@ -456,8 +441,8 @@ public:
 	bool gerbiczCheck(const uint32_t a) const
 	{
 		const size_t n = this->_n;
-		const uint32 * const x = this->_gx;
-		uint32 * const d = this->_gd;
+		const uint32_2 * const x = this->_gx;
+		uint32_2 * const d = this->_gd;
 		const uint32 * const b = this->_b;
 
 		int32 f[VSIZE];
@@ -468,11 +453,11 @@ public:
 			for (size_t i = 0; i < VSIZE; ++i)
 			{
 				const size_t k = j * VSIZE + i;
-				const uint32 xk = x[k], dk = d[k];
+				const uint32 xk = x[k].s[0], dk = d[k].s[0];
 				const uint32 cxk = (xk > P1 / 2) ? P1 : 0, cdk = (dk > P1 / 2) ? P1 : 0;
 				const int32 ixk = int32(xk - cxk), idk = int32(dk - cdk);
 				int64 e = f[i] + ixk * int64(a) - idk;
-				d[k] = reduce64(e, b[i]);
+				d[k].s[0] = reduce64(e, b[i]);
 				f[i] = int32(e);	// |e| <= 3
 			}
 		}
@@ -486,14 +471,14 @@ public:
 				for (size_t j = 0; j < n; ++j)
 				{
 					const size_t k = j * VSIZE + i;
-					e += int32(d[k]);
-					d[k] = reduce32(e, b[i]);
+					e += int32(d[k].s[0]);
+					d[k].s[0] = reduce32(e, b[i]);
 					if (e == 0) break;
 				}
 			}
 		}
 
-		for (size_t k = 0; k < VSIZE * n; ++k) if (d[k] != 0) return false;
+		for (size_t k = 0; k < VSIZE * n; ++k) if (d[k].s[0] != 0) return false;
 
 		return true;
 	}

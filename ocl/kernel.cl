@@ -123,6 +123,10 @@ inline uint32 mul_P1(const uint32 lhs, const uint32 rhs) { return _mulMod(lhs, r
 inline uint32 mul_P2(const uint32 lhs, const uint32 rhs) { return _mulMod(lhs, rhs, P2, P2_INV); }
 inline uint32 mul_P3(const uint32 lhs, const uint32 rhs) { return _mulMod(lhs, rhs, P3, P3_INV); }
 
+inline uint32_2 add_P12(const uint32_2 lhs, const uint32_2 rhs) { return (uint32_2)(add_P1(lhs.s0, rhs.s0), add_P2(lhs.s1, rhs.s1)); }
+inline uint32_2 sub_P12(const uint32_2 lhs, const uint32_2 rhs) { return (uint32_2)(sub_P1(lhs.s0, rhs.s0), sub_P2(lhs.s1, rhs.s1)); }
+inline uint32_2 mul_P12(const uint32_2 lhs, const uint32_2 rhs) { return (uint32_2)(mul_P1(lhs.s0, rhs.s0), mul_P2(lhs.s1, rhs.s1)); }
+
 inline int64 garner2(const uint32 r1, const uint32 r2)
 {
 	const uint32 u12 = mul_P1(sub_P1(r1, r2), InvP2_P1);
@@ -142,38 +146,67 @@ inline static int96 garner3(const uint32 r1, const uint32 r2, const uint32 r3)
 }
 
 __kernel
-void set(const __global uint32 * restrict const x, __global uint32 * restrict const y)
+void set_P1(const __global uint32_2 * restrict const x12, __global uint32 * restrict const y1)
 {
 	const size_t k = get_global_id(0);
-	y[k] = x[k];
+	y1[k] = x12[k].s0;
 }
 
 __kernel
-void swap(__global uint32 * restrict const x, __global uint32 * restrict const y)
+void set_P12(const __global uint32_2 * restrict const x12, __global uint32_2 * restrict const y12)
 {
 	const size_t k = get_global_id(0);
-	const uint32 t = x[k]; x[k] = y[k]; y[k] = t;
+	y12[k] = x12[k];
 }
 
 __kernel
-void reset(__global uint32 * restrict const x, const uint32 a)
+void set_P123(const __global uint32_2 * restrict const x12, const __global uint32 * restrict const x3, __global uint32_2 * restrict const y12, __global uint32 * restrict const y3)
 {
 	const size_t k = get_global_id(0);
-	x[k] = (k < VSIZE) ? a : 0;
+	const uint32_2 x12k = x12[k]; const uint32 x3k = x3[k];
+	y12[k] = x12k; y3[k] = x3k;
 }
 
 __kernel
-void square2_P1(__global uint32 * restrict const x)
+void swap_P12(__global uint32_2 * restrict const x12, __global uint32_2 * restrict const y12)
 {
 	const size_t k = get_global_id(0);
-	x[k] = mul_P1(x[k], x[k]);
+	const uint32_2 x12k = x12[k], y12k = y12[k];
+	x12[k] = y12k; y12[k] = x12k;
 }
 
 __kernel
-void square2_P2(__global uint32 * restrict const x)
+void swap_P123(__global uint32_2 * restrict const x12, __global uint32 * restrict const x3, __global uint32_2 * restrict const y12, __global uint32 * restrict const y3)
 {
 	const size_t k = get_global_id(0);
-	x[k] = mul_P2(x[k], x[k]);
+	const uint32_2 x12k = x12[k], y12k = y12[k];
+	x12[k] = y12k; y12[k] = x12k;
+	const uint32 x3k = x3[k], y3k = y3[k];
+	x3[k] = y3k; y3[k] = x3k;
+}
+
+__kernel
+void reset_P12(__global uint32_2 * restrict const x12, const uint32 a)
+{
+	const size_t k = get_global_id(0);
+	const uint32 v = (k < VSIZE) ? a : 0;
+	x12[k] = (uint32_2)(v, v);
+}
+
+__kernel
+void reset_P3(__global uint32 * restrict const x3, const uint32 a)
+{
+	const size_t k = get_global_id(0);
+	const uint32 v = (k < VSIZE) ? a : 0;
+	x3[k] = v;
+}
+
+__kernel
+void square2_P12(__global uint32_2 * restrict const x12)
+{
+	const size_t k = get_global_id(0);
+	const uint32_2 x12k = x12[k];
+	x12[k] = mul_P12(x12k, x12k);
 }
 
 __kernel
@@ -184,17 +217,11 @@ void square2_P3(__global uint32 * restrict const x)
 }
 
 __kernel
-void mul2_P1(const __global uint32 * restrict const y, __global uint32 * restrict const x)
+void mul2_P12(const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12)
 {
 	const size_t k = get_global_id(0);
-	x[k] = mul_P1(x[k], y[k]);
-}
-
-__kernel
-void mul2_P2(const __global uint32 * restrict const y, __global uint32 * restrict const x)
-{
-	const size_t k = get_global_id(0);
-	x[k] = mul_P2(x[k], y[k]);
+	const uint32_2 y12k = y12[k], x12k = x12[k];
+	x12[k] = mul_P12(x12k, y12k);
 }
 
 __kernel
@@ -216,17 +243,14 @@ __constant uint64 cMask[64] = {
 	};
 
 __kernel
-void mul2cond_P1(const __global uint32 * restrict const y, __global uint32 * restrict const x, const uint64 c)
+void mul2cond_P12(const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12, const uint64 c)
 {
 	const size_t k = get_global_id(0);
-	if ((c & cMask[k % VSIZE]) != 0) x[k] = mul_P1(x[k], y[k]);
-}
-
-__kernel
-void mul2cond_P2(const __global uint32 * restrict const y, __global uint32 * restrict const x, const uint64 c)
-{
-	const size_t k = get_global_id(0);
-	if ((c & cMask[k % VSIZE]) != 0) x[k] = mul_P2(x[k], y[k]);
+	if ((c & cMask[k % VSIZE]) != 0)
+	{
+		const uint32_2 y12k = y12[k], x12k = x12[k];
+		x12[k] = mul_P12(x12k, y12k);
+	}
 }
 
 __kernel
@@ -237,75 +261,51 @@ void mul2cond_P3(const __global uint32 * restrict const y, __global uint32 * res
 }
 
 __kernel
-void forward2_P1(const __global uint32 * restrict const wr, __global uint32 * restrict const x, const uint32 s, const uint32 m, const int lm)
+void forward2_P12(const __global uint32_2 * restrict const wr12, __global uint32_2 * restrict const x12, const uint32 s, const uint32 m, const int lm)
 {
 	const size_t id = get_global_id(0);
 	const size_t vid = id / VSIZE, l = id % VSIZE;
 	const size_t j = vid >> lm, i = vid & (m - 1), mj = vid - i;
-	const uint32 w = wr[s + j];
+	const uint32_2 w12 = wr12[s + j];
 	const size_t k = VSIZE * (2 * mj + i) + l;
-	const uint32 u = x[k], um = mul_P1(x[k + VSIZE * m], w);
-	x[k] = add_P1(u, um); x[k + VSIZE * m] = sub_P1(u, um);
+	const uint32_2 u0_P12 = x12[k + 0 * VSIZE * m], u1_P12 = mul_P12(x12[k + 1 * VSIZE * m], w12);
+	x12[k + 0 * VSIZE * m] = add_P12(u0_P12, u1_P12); x12[k + 1 * VSIZE * m] = sub_P12(u0_P12, u1_P12);
 }
 
 __kernel
-void forward2_P2(const __global uint32 * restrict const wr, __global uint32 * restrict const x, const uint32 s, const uint32 m, const int lm)
+void forward2_P3(const __global uint32 * restrict const wr3, __global uint32 * restrict const x3, const uint32 s, const uint32 m, const int lm)
 {
 	const size_t id = get_global_id(0);
 	const size_t vid = id / VSIZE, l = id % VSIZE;
 	const size_t j = vid >> lm, i = vid & (m - 1), mj = vid - i;
-	const uint32 w = wr[s + j];
+	const uint32 w3 = wr3[s + j];
 	const size_t k = VSIZE * (2 * mj + i) + l;
-	const uint32 u = x[k], um = mul_P2(x[k + VSIZE * m], w);
-	x[k] = add_P2(u, um); x[k + VSIZE * m] = sub_P2(u, um);
+	const uint32 u0_P3 = x3[k + 0 * VSIZE * m], u1_P3 = mul_P3(x3[k + 1 * VSIZE * m], w3);
+	x3[k + 0 * VSIZE * m] = add_P3(u0_P3, u1_P3); x3[k + 1 * VSIZE * m] = sub_P3(u0_P3, u1_P3);
 }
 
 __kernel
-void forward2_P3(const __global uint32 * restrict const wr, __global uint32 * restrict const x, const uint32 s, const uint32 m, const int lm)
+void backward2_P12(const __global uint32_2 * restrict const wri12, __global uint32_2 * restrict const x12, const uint32 s, const uint32 m, const int lm)
 {
 	const size_t id = get_global_id(0);
 	const size_t vid = id / VSIZE, l = id % VSIZE;
 	const size_t j = vid >> lm, i = vid & (m - 1), mj = vid - i;
-	const uint32 w = wr[s + j];
+	const uint32_2 wi12 = wri12[s + j];
 	const size_t k = VSIZE * (2 * mj + i) + l;
-	const uint32 u = x[k], um = mul_P3(x[k + VSIZE * m], w);
-	x[k] = add_P3(u, um); x[k + VSIZE * m] = sub_P3(u, um);
+	const uint32_2 u0_P12 = x12[k + 0 * VSIZE * m], u1_P12 = x12[k + 1 * VSIZE * m];
+	x12[k + 0 * VSIZE * m] = add_P12(u0_P12, u1_P12); x12[k + 1 * VSIZE * m] = mul_P12(sub_P12(u0_P12, u1_P12), wi12);
 }
 
 __kernel
-void backward2_P1(const __global uint32 * restrict const wri, __global uint32 * restrict const x, const uint32 s, const uint32 m, const int lm)
+void backward2_P3(const __global uint32 * restrict const wri3, __global uint32 * restrict const x3, const uint32 s, const uint32 m, const int lm)
 {
 	const size_t id = get_global_id(0);
 	const size_t vid = id / VSIZE, l = id % VSIZE;
 	const size_t j = vid >> lm, i = vid & (m - 1), mj = vid - i;
-	const uint32 wi = wri[s + j];
+	const uint32 wi3 = wri3[s + j];
 	const size_t k = VSIZE * (2 * mj + i) + l;
-	const uint32 u = x[k], um = x[k + VSIZE * m];
-	x[k] = add_P1(u, um); x[k + VSIZE * m] = mul_P1(sub_P1(u, um), wi);
-}
-
-__kernel
-void backward2_P2(const __global uint32 * restrict const wri, __global uint32 * restrict const x, const uint32 s, const uint32 m, const int lm)
-{
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
-	const size_t j = vid >> lm, i = vid & (m - 1), mj = vid - i;
-	const uint32 wi = wri[s + j];
-	const size_t k = VSIZE * (2 * mj + i) + l;
-	const uint32 u = x[k], um = x[k + VSIZE * m];
-	x[k] = add_P2(u, um); x[k + VSIZE * m] = mul_P2(sub_P2(u, um), wi);
-}
-
-__kernel
-void backward2_P3(const __global uint32 * restrict const wri, __global uint32 * restrict const x, const uint32 s, const uint32 m, const int lm)
-{
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
-	const size_t j = vid >> lm, i = vid & (m - 1), mj = vid - i;
-	const uint32 wi = wri[s + j];
-	const size_t k = VSIZE * (2 * mj + i) + l;
-	const uint32 u = x[k], um = x[k + VSIZE * m];
-	x[k] = add_P3(u, um); x[k + VSIZE * m] = mul_P3(sub_P3(u, um), wi);
+	const uint32 u0_P3 = x3[k + 0 * VSIZE * m], u1_P3 = x3[k + 1 * VSIZE * m];
+	x3[k + 0 * VSIZE * m] = add_P3(u0_P3, u1_P3); x3[k + 1 * VSIZE * m] = mul_P3(sub_P3(u0_P3, u1_P3), wi3);
 }
 
 inline uint32 barrett(const uint64 a, const uint32 b, const uint32 b_inv, const int b_s, uint32 * a_p)
@@ -360,7 +360,7 @@ inline int32 reduce96(int96 * f, const uint32 b, const uint32 b_inv, const int b
 
 __kernel
 void normalize2a(const __global uint32_2 * restrict const bb_inv, __global int64 * restrict const f,
-				 __global uint32 * restrict const z1, __global uint32 * restrict const z2, const int b_s)
+				 __global uint32_2 * restrict const z12, const int b_s)
 {
 	const size_t id = get_global_id(0);
 	const size_t i = id % VSIZE, j = id / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
@@ -369,16 +369,17 @@ void normalize2a(const __global uint32_2 * restrict const bb_inv, __global int64
 	for (size_t c = 0; c < CSIZE; ++c)
 	{
 		const size_t k = k0 + c * VSIZE;
-		a += garner2(mul_P1(z1[k], norm1), mul_P2(z2[k], norm2));
+		const uint32_2 z12k = z12[k];
+		a += garner2(mul_P1(z12k.s0, norm1), mul_P2(z12k.s1, norm2));
 		const int32 r = reduce64(&a, b, b_inv, b_s);
-		z1[k] = seti_P1(r); z2[k] = seti_P2(r);
+		z12[k] = (uint32_2)(seti_P1(r), seti_P2(r));
 	}
 	f[id] = a;
 }
 
 __kernel
 void normalize2b(const __global uint32_2 * restrict const bb_inv, const __global int64 * restrict const f,
-				 __global uint32 * restrict const z1, __global uint32 * restrict const z2, const int b_s)
+				 __global uint32_2 * restrict const z12, const int b_s)
 {
 	const size_t id = get_global_id(0);
 	const size_t i = id % VSIZE, j = (id / VSIZE + 1) & (get_global_size(0) / VSIZE - 1);
@@ -390,22 +391,22 @@ void normalize2b(const __global uint32_2 * restrict const bb_inv, const __global
 	for (c = 0; c < CSIZE - 1; ++c)
 	{
 		const size_t k = k0 + c * VSIZE;
-		a += geti_P1(z1[k]);
+		a += geti_P1(z12[k].s0);
 		const int32 r = reduce64(&a, b, b_inv, b_s);
-		z1[k] = seti_P1(r); z2[k] = seti_P2(r);
+		z12[k] = (uint32_2)(seti_P1(r), seti_P2(r));
 		if (a == 0) return;
 	}
 	if (c == CSIZE - 1)
 	{
 		const size_t k = k0 + c * VSIZE;
-		z1[k] = add_P1(z1[k], seti_P1((int32)a)); z2[k] = add_P2(z2[k], seti_P2((int32)a));
+		z12[k] = add_P12(z12[k], (uint32_2)(seti_P1((int32)a), seti_P2((int32)a)));
 		// if (abs(a) > 1) throw;
 	}
 }
 
 __kernel
 void normalize3a(const __global uint32_2 * restrict const bb_inv, __global int64 * restrict const f,
-				 __global uint32 * restrict const z1, __global uint32 * restrict const z2, __global uint32 * restrict const z3, const int b_s)
+				 __global uint32_2 * restrict const z12, __global uint32 * restrict const z3, const int b_s)
 {
 	const size_t id = get_global_id(0);
 	const size_t i = id % VSIZE, j = id / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
@@ -414,16 +415,17 @@ void normalize3a(const __global uint32_2 * restrict const bb_inv, __global int64
 	for (size_t c = 0; c < CSIZE; ++c)
 	{
 		const size_t k = k0 + c * VSIZE;
-		a = int96_add(a, garner3(mul_P1(z1[k], norm1), mul_P2(z2[k], norm2), mul_P3(z3[k], norm3)));
+		const uint32_2 z12k = z12[k];
+		a = int96_add(a, garner3(mul_P1(z12k.s0, norm1), mul_P2(z12k.s1, norm2), mul_P3(z3[k], norm3)));
 		const int32 r = reduce96(&a, b, b_inv, b_s);
-		z1[k] = seti_P1(r); z2[k] = seti_P2(r); z3[k] = seti_P3(r);
+		z12[k] = (uint32_2)(seti_P1(r), seti_P2(r)); z3[k] = seti_P3(r);
 	}
 	f[id] = (int64)a.s0;
 }
 
 __kernel
 void normalize3b(const __global uint32_2 * restrict const bb_inv, const __global int64 * restrict const f,
-				 __global uint32 * restrict const z1, __global uint32 * restrict const z2, __global uint32 * restrict const z3, const int b_s)
+				 __global uint32_2 * restrict const z12, __global uint32 * restrict const z3, const int b_s)
 {
 	const size_t id = get_global_id(0);
 	const size_t i = id % VSIZE, j = (id / VSIZE + 1) & (get_global_size(0) / VSIZE - 1);
@@ -435,15 +437,15 @@ void normalize3b(const __global uint32_2 * restrict const bb_inv, const __global
 	for (c = 0; c < CSIZE - 1; ++c)
 	{
 		const size_t k = k0 + c * VSIZE;
-		a += geti_P1(z1[k]);
+		a += geti_P1(z12[k].s0);
 		const int32 r = reduce64(&a, b, b_inv, b_s);
-		z1[k] = seti_P1(r); z2[k] = seti_P2(r); z3[k] = seti_P3(r);
+		z12[k] = (uint32_2)(seti_P1(r), seti_P2(r)); z3[k] = seti_P3(r);
 		if (a == 0) return;
 	}
 	if (c == CSIZE - 1)
 	{
 		const size_t k = k0 + c * VSIZE;
-		z1[k] = add_P1(z1[k], seti_P1((int32)a)); z2[k] = add_P2(z2[k], seti_P2((int32)a)); z3[k] = add_P3(z3[k], seti_P3((int32)a));
+		z12[k] = add_P12(z12[k], (uint32_2)(seti_P1((int32)a), seti_P2((int32)a))); z3[k] = add_P3(z3[k], seti_P3((int32)a));
 		// if (abs(a) > 1) throw;
 	}
 }
