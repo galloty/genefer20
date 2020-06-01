@@ -27,8 +27,9 @@ private:
 	cl_kernel _set_P1 = nullptr, _setxy_P12 = nullptr, _setdy_P12 = nullptr, _setxy_P123 = nullptr, _setdy_P123 = nullptr;
 	cl_kernel _swap_P12 = nullptr, _swap_P123 = nullptr, _reset_P12 = nullptr, _reset_P3 = nullptr;
 	cl_kernel _square2_P12 = nullptr, _square2_P123 = nullptr, _square4_P12 = nullptr, _square4_P123 = nullptr;
-	cl_kernel _mul2_P12 = nullptr, _mul2_P3 = nullptr, _mul2cond_P12 = nullptr, _mul2cond_P3 = nullptr;
-	cl_kernel  _forward2_P12 = nullptr, _forward2_P3 = nullptr, _forward4_P12 = nullptr, _forward4_P123 = nullptr, _backward2_P12 = nullptr, _backward2_P3 = nullptr, _backward4_P12 = nullptr, _backward4_P123 = nullptr;
+	cl_kernel _mul2cond_P12 = nullptr, _mul2cond_P123 = nullptr, _mul4cond_P12 = nullptr, _mul4cond_P123 = nullptr;
+	cl_kernel _mul2_P12 = nullptr, _mul2_P3 = nullptr;
+	cl_kernel _forward2_P12 = nullptr, _forward2_P3 = nullptr, _forward4_P12 = nullptr, _forward4_P123 = nullptr, _backward2_P12 = nullptr, _backward2_P3 = nullptr, _backward4_P12 = nullptr, _backward4_P123 = nullptr;
 	cl_kernel _normalize2a = nullptr, _normalize2b = nullptr, _normalize3a = nullptr, _normalize3b = nullptr;
 
 public:
@@ -129,17 +130,27 @@ public:
 		_setKernelArg(_square4_P123, 2, sizeof(cl_mem), &_wri12);
 		_setKernelArg(_square4_P123, 3, sizeof(cl_mem), &_wri3);
 
+		_mul2cond_P12 = _createKernel("mul2cond_P12");
+		_setKernelArg(_mul2cond_P12, 0, sizeof(cl_mem), &_wr12);
+		_setKernelArg(_mul2cond_P12, 1, sizeof(cl_mem), &_wri12);
+		_mul2cond_P123 = _createKernel("mul2cond_P123");
+		_setKernelArg(_mul2cond_P123, 0, sizeof(cl_mem), &_wr12);
+		_setKernelArg(_mul2cond_P123, 1, sizeof(cl_mem), &_wr3);
+		_setKernelArg(_mul2cond_P123, 2, sizeof(cl_mem), &_wri12);
+		_setKernelArg(_mul2cond_P123, 3, sizeof(cl_mem), &_wri3);
+		_mul4cond_P12 = _createKernel("mul4cond_P12");
+		_setKernelArg(_mul4cond_P12, 0, sizeof(cl_mem), &_wr12);
+		_setKernelArg(_mul4cond_P12, 1, sizeof(cl_mem), &_wri12);
+		_mul4cond_P123 = _createKernel("mul4cond_P123");
+		_setKernelArg(_mul4cond_P123, 0, sizeof(cl_mem), &_wr12);
+		_setKernelArg(_mul4cond_P123, 1, sizeof(cl_mem), &_wr3);
+		_setKernelArg(_mul4cond_P123, 2, sizeof(cl_mem), &_wri12);
+		_setKernelArg(_mul4cond_P123, 3, sizeof(cl_mem), &_wri3);
+
 		_mul2_P12 = _createKernel("mul2_P12");
 		_setKernelArg(_mul2_P12, 0, sizeof(cl_mem), &_y12);
 		_mul2_P3 = _createKernel("mul2_P3");
 		_setKernelArg(_mul2_P3, 0, sizeof(cl_mem), &_y3);
-
-		_mul2cond_P12 = _createKernel("mul2cond_P12");
-		_setKernelArg(_mul2cond_P12, 0, sizeof(cl_mem), &_y12);
-		_setKernelArg(_mul2cond_P12, 1, sizeof(cl_mem), &_x12);
-		_mul2cond_P3 = _createKernel("mul2cond_P3");
-		_setKernelArg(_mul2cond_P3, 0, sizeof(cl_mem), &_y3);
-		_setKernelArg(_mul2cond_P3, 1, sizeof(cl_mem), &_x3);
 
 		_forward2_P12 = _createKernel("forward2_P12");
 		_setKernelArg(_forward2_P12, 0, sizeof(cl_mem), &_wr12);
@@ -188,7 +199,8 @@ public:
 		_releaseKernel(_set_P1); _releaseKernel(_setxy_P12); _releaseKernel(_setdy_P12); _releaseKernel(_setxy_P123); _releaseKernel(_setdy_P123);
 		_releaseKernel(_swap_P12); _releaseKernel(_swap_P123); _releaseKernel(_reset_P12); _releaseKernel(_reset_P3);
 		_releaseKernel(_square2_P12); _releaseKernel(_square2_P123); _releaseKernel(_square4_P12); _releaseKernel(_square4_P123);
-		_releaseKernel(_mul2_P12); _releaseKernel(_mul2_P3); _releaseKernel(_mul2cond_P12); _releaseKernel(_mul2cond_P3);
+		_releaseKernel(_mul2cond_P12); _releaseKernel(_mul2cond_P123); _releaseKernel(_mul4cond_P12); _releaseKernel(_mul4cond_P123);
+		_releaseKernel(_mul2_P12); _releaseKernel(_mul2_P3);
 		_releaseKernel(_forward2_P12); _releaseKernel(_forward2_P3); _releaseKernel(_forward4_P12); _releaseKernel(_forward4_P123); _releaseKernel(_backward2_P12); _releaseKernel(_backward2_P3); _releaseKernel(_backward4_P12); _releaseKernel(_backward4_P123);
 		_releaseKernel(_normalize2a); _releaseKernel(_normalize2b); _releaseKernel(_normalize3a); _releaseKernel(_normalize3b);
 	}
@@ -285,6 +297,40 @@ public:
 	}
 
 public:
+	void mul2condxy_P12(const uint64 c)
+	{
+		_setKernelArg(_mul2cond_P12, 2, sizeof(cl_mem), &_y12);
+		_setKernelArg(_mul2cond_P12, 3, sizeof(cl_mem), &_x12);
+		_setKernelArg(_mul2cond_P12, 4, sizeof(cl_ulong), &c);
+		_executeKernel(_mul2cond_P12, VSIZE * _size / 2);
+	}
+	void mul2condxy_P123(const uint64 c)
+	{
+		_setKernelArg(_mul2cond_P123, 4, sizeof(cl_mem), &_y12);
+		_setKernelArg(_mul2cond_P123, 5, sizeof(cl_mem), &_y3);
+		_setKernelArg(_mul2cond_P123, 6, sizeof(cl_mem), &_x12);
+		_setKernelArg(_mul2cond_P123, 7, sizeof(cl_mem), &_x3);
+		_setKernelArg(_mul2cond_P123, 8, sizeof(cl_ulong), &c);
+		_executeKernel(_mul2cond_P123, VSIZE * _size / 2);
+	}
+	void mul4condxy_P12(const uint64 c)
+	{
+		_setKernelArg(_mul4cond_P12, 2, sizeof(cl_mem), &_y12);
+		_setKernelArg(_mul4cond_P12, 3, sizeof(cl_mem), &_x12);
+		_setKernelArg(_mul4cond_P12, 4, sizeof(cl_ulong), &c);
+		_executeKernel(_mul4cond_P12, VSIZE * _size / 4);
+	}
+	void mul4condxy_P123(const uint64 c)
+	{
+		_setKernelArg(_mul4cond_P123, 4, sizeof(cl_mem), &_y12);
+		_setKernelArg(_mul4cond_P123, 5, sizeof(cl_mem), &_y3);
+		_setKernelArg(_mul4cond_P123, 6, sizeof(cl_mem), &_x12);
+		_setKernelArg(_mul4cond_P123, 7, sizeof(cl_mem), &_x3);
+		_setKernelArg(_mul4cond_P123, 8, sizeof(cl_ulong), &c);
+		_executeKernel(_mul4cond_P123, VSIZE * _size / 4);
+	}
+
+public:
 	void mul2dy_P12()
 	{
 		_setKernelArg(_mul2_P12, 1, sizeof(cl_mem), &_d12);
@@ -306,18 +352,6 @@ public:
 	{
 		_setKernelArg(_mul2_P3, 1, sizeof(cl_mem), &_x3);
 		_executeKernel(_mul2_P3, VSIZE * _size);
-	}
-
-public:
-	void mul2condxy_P12(const uint64 c)
-	{
-		_setKernelArg(_mul2cond_P12, 2, sizeof(cl_ulong), &c);
-		_executeKernel(_mul2cond_P12, VSIZE * _size);
-	}
-	void mul2condxy_P3(const uint64 c)
-	{
-		_setKernelArg(_mul2cond_P3, 2, sizeof(cl_ulong), &c);
-		_executeKernel(_mul2cond_P3, VSIZE * _size);
 	}
 
 private:
