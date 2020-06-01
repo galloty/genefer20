@@ -105,7 +105,7 @@ public:
 	}
 
 private:
-	bool check(const vint32 & b, const uint32_t a, const bool display) const
+	void check_GPU(const vint32 & b, const uint32_t a) const
 	{
 		const int n = this->_n;
 		const size_t m = size_t(1) << n;
@@ -133,6 +133,14 @@ private:
 		for (size_t j = 0; j < L; ++j) t->powMod();
 
 		t->saveRes();
+	}
+
+private:
+	void check_CPU(const vint32 & b, const uint32_t a, const bool display) const
+	{
+		const int n = this->_n;
+		const size_t m = size_t(1) << n;
+		transform * const t = this->_transform;
 
 		if (!t->gerbiczCheck(a)) throw std::runtime_error("Gerbicz failed");
 
@@ -160,25 +168,36 @@ private:
 
 		if (display) pio::display(std::string("\r") + ssr.str());
 		pio::result(ssr.str());
+	}
 
-		return true;
+private:
+	void check(const vint32 & b, const uint32_t a, const bool display) const
+	{
+		check_GPU(b, a);
+		check_CPU(b, a, display);
 	}
 
 public:
 	void bench()
 	{
-		const timer::time startTime = timer::currentTime();
-		uint32 bi = 1000000000;
+		double elapsedTimeGPU = 0, elapsedTimeCPU = 0;
+		uint32 bi = 400000000;
 		for (size_t j = 1; true; ++j)
 		{
+			const timer::time t0 = timer::currentTime();
 			vint32 b;
 			for (size_t i = 0; i < VSIZE; ++i) { b[i] = bi; bi += 2; }
-			check(b, 2, false);
+			check_GPU(b, 2);
+			const timer::time t1 = timer::currentTime();
+			elapsedTimeGPU += timer::diffTime(t1, t0);
+			check_CPU(b, 2, false);
+			elapsedTimeCPU += timer::diffTime(timer::currentTime(), t1);
 			if (j % 1 == 0)
 			{
-				const double elapsedTime = timer::diffTime(timer::currentTime(), startTime);
-				std::cout << std::setprecision(3) << (j * VSIZE / elapsedTime) << " GFN-" << this->_n << "/sec" << std::endl;
-				return;
+				const double elapsedTime = elapsedTimeGPU + elapsedTimeCPU;
+				std::cout << std::setprecision(3) << "GPU: " << 100 * elapsedTimeGPU / elapsedTime << "%, CPU: " << 100 * elapsedTimeCPU / elapsedTime
+					<< "%, " << (j * VSIZE / elapsedTime) << " GFN-" << this->_n << "/sec" << std::endl;
+				// return;
 			}
 			if (_quit) return;
 		}
