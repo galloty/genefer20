@@ -261,30 +261,26 @@ public:
 	}
 
 public:
-	void square2x_P12(const uint32 s)
+	void square2x_P12()
 	{
 		_setKernelArg(_square2_P12, 2, sizeof(cl_mem), &_x12);
-		_setKernelArg(_square2_P12, 3, sizeof(uint32), &s);
 		_executeKernel(_square2_P12, VSIZE * _size / 2);
 	}
-	void square2x_P123(const uint32 s)
+	void square2x_P123()
 	{
 		_setKernelArg(_square2_P123, 4, sizeof(cl_mem), &_x12);
 		_setKernelArg(_square2_P123, 5, sizeof(cl_mem), &_x3);
-		_setKernelArg(_square2_P123, 6, sizeof(uint32), &s);
 		_executeKernel(_square2_P123, VSIZE * _size / 2);
 	}
-	void square4x_P12(const uint32 s)
+	void square4x_P12()
 	{
 		_setKernelArg(_square4_P12, 2, sizeof(cl_mem), &_x12);
-		_setKernelArg(_square4_P12, 3, sizeof(uint32), &s);
 		_executeKernel(_square4_P12, VSIZE * _size / 4);
 	}
-	void square4x_P123(const uint32 s)
+	void square4x_P123()
 	{
 		_setKernelArg(_square4_P123, 4, sizeof(cl_mem), &_x12);
 		_setKernelArg(_square4_P123, 5, sizeof(cl_mem), &_x3);
-		_setKernelArg(_square4_P123, 6, sizeof(uint32), &s);
 		_executeKernel(_square4_P123, VSIZE * _size / 4);
 	}
 

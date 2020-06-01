@@ -189,8 +189,8 @@ private:
 		if (this->_3primes)
 		{
 			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P123(s, lm);
-			if (odd) _engine.square2x_P123(n / 2);
-			else _engine.square4x_P123(n / 4);
+			if (odd) _engine.square2x_P123();
+			else _engine.square4x_P123();
 			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P123(s, lm);
 			_engine.normalize3ax();
 			_engine.normalize3bx();
@@ -198,8 +198,8 @@ private:
 		else
 		{
 			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P12(s, lm);
-			if (odd) _engine.square2x_P12(n / 2);
-			else _engine.square4x_P12(n / 4);
+			if (odd) _engine.square2x_P12();
+			else _engine.square4x_P12();
 			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P12(s, lm);
 			_engine.normalize2ax();
 			_engine.normalize2bx();
@@ -215,7 +215,7 @@ private:
 
 		if (this->_3primes)
 		{
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4x_P123(s, lm);
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P123(s, lm);
 			if (odd)
 			{
 				_engine.forward2x_P12(n / 2, 0);
@@ -227,24 +227,31 @@ private:
 			}
 			else
 			{
+				_engine.forward4x_P123(n / 4, 0);
 				_engine.mul2condxy_P12(c);
 				_engine.mul2condxy_P3(c);
+				_engine.backward4x_P123(n / 4, 0);
 			}
-			for (size_t lm = odd ? 1 : 0, s = odd ? n / 8 : n / 4; s > 0; lm += 2, s /= 4) _engine.backward4x_P123(s, lm);
+			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P123(s, lm);
 			_engine.normalize3ax();
 			_engine.normalize3bx();
 		}
 		else
 		{
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4x_P12(s, lm);
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P12(s, lm);
 			if (odd)
 			{
 				_engine.forward2x_P12(n / 2, 0);
 				_engine.mul2condxy_P12(c);
 				_engine.backward2x_P12(n / 2, 0);
 			}
-			else _engine.mul2condxy_P12(c);
-			for (size_t lm = odd ? 1 : 0, s = odd ? n / 8 : n / 4; s > 0; lm += 2, s /= 4) _engine.backward4x_P12(s, lm);
+			else
+			{
+				_engine.forward4x_P12(n / 4, 0);
+				_engine.mul2condxy_P12(c);
+				_engine.backward4x_P12(n / 4, 0);
+			}
+			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P12(s, lm);
 			_engine.normalize2ax();
 			_engine.normalize2bx();
 		}
