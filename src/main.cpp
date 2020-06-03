@@ -87,7 +87,7 @@ private:
 #endif
 
 		std::ostringstream ss;
-		ss << "genefer20 0.0.1 " << sysver << ssc.str() << std::endl;
+		ss << "genefer20 0.1.0 " << sysver << ssc.str() << std::endl;
 		ss << "Copyright (c) 2020, Yves Gallot" << std::endl;
 		ss << "genefer20 is free source code, under the MIT license." << std::endl;
 		if (nl) ss << std::endl;
@@ -147,9 +147,11 @@ public:
 		ocl::platform platform;
 		platform.displayDevices();
 
+		if (args.empty()) return;
+
 		size_t d = 0;
 		int n = 8;	// test
-		std::string filename = "GFN8.txt";	// test
+		std::string filename;	// = "GFN8.txt";	// test
 		// parse args
 		for (size_t i = 0, size = args.size(); i < size; ++i)
 		{

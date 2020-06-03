@@ -10,6 +10,7 @@ typedef int 	int32;
 typedef ulong	uint64;
 typedef long 	int64;
 typedef uint2	uint32_2;
+typedef ulong16	uint64_16;
 
 typedef struct { uint64 s0; uint32 s1; } uint96;
 typedef struct { uint64 s0; int32  s1; } int96;
@@ -155,6 +156,23 @@ __constant uint64 cMask[64] = {
 	0x0001000000000000ul, 0x0002000000000000ul, 0x0004000000000000ul, 0x0008000000000000ul, 0x0010000000000000ul, 0x0020000000000000ul, 0x0040000000000000ul, 0x0080000000000000ul,
 	0x0100000000000000ul, 0x0200000000000000ul, 0x0400000000000000ul, 0x0800000000000000ul, 0x1000000000000000ul, 0x2000000000000000ul, 0x4000000000000000ul, 0x8000000000000000ul
 	};
+
+inline uint64 getcval(const uint64_16 c, const size_t l_64)
+{
+	const uint64 c0_mask = (l_64 == 0x00) ? 0xfffffffffffffffful : 0, c1_mask = (l_64 == 0x01) ? 0xfffffffffffffffful : 0;
+	const uint64 c2_mask = (l_64 == 0x02) ? 0xfffffffffffffffful : 0, c3_mask = (l_64 == 0x03) ? 0xfffffffffffffffful : 0;
+	const uint64 c4_mask = (l_64 == 0x04) ? 0xfffffffffffffffful : 0, c5_mask = (l_64 == 0x05) ? 0xfffffffffffffffful : 0;
+	const uint64 c6_mask = (l_64 == 0x06) ? 0xfffffffffffffffful : 0, c7_mask = (l_64 == 0x07) ? 0xfffffffffffffffful : 0;
+	const uint64 c8_mask = (l_64 == 0x08) ? 0xfffffffffffffffful : 0, c9_mask = (l_64 == 0x09) ? 0xfffffffffffffffful : 0;
+	const uint64 ca_mask = (l_64 == 0x0a) ? 0xfffffffffffffffful : 0, cb_mask = (l_64 == 0x0b) ? 0xfffffffffffffffful : 0;
+	const uint64 cc_mask = (l_64 == 0x0c) ? 0xfffffffffffffffful : 0, cd_mask = (l_64 == 0x0d) ? 0xfffffffffffffffful : 0;
+	const uint64 ce_mask = (l_64 == 0x0e) ? 0xfffffffffffffffful : 0, cf_mask = (l_64 == 0x0f) ? 0xfffffffffffffffful : 0;
+
+	return (c.s0 & c0_mask) | (c.s1 & c1_mask) | (c.s2 & c2_mask) | (c.s3 & c3_mask)
+		 | (c.s4 & c4_mask) | (c.s5 & c5_mask) | (c.s6 & c6_mask) | (c.s7 & c7_mask)
+		 | (c.s8 & c8_mask) | (c.s9 & c9_mask) | (c.sa & ca_mask) | (c.sb & cb_mask)
+		 | (c.sc & cc_mask) | (c.sd & cd_mask) | (c.se & ce_mask) | (c.sf & cf_mask);
+}
 
 __kernel
 void set_P1(const __global uint32_2 * restrict const x12, __global uint32 * restrict const y1)
@@ -360,7 +378,7 @@ void square2_P123(const __global uint32_2 * restrict const wr12, const __global 
 
 __kernel
 void mul2cond_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,
-	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12, const uint64 c)
+	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12, const uint64_16 c)
 {
 	const size_t id = get_global_id(0);
 	const size_t vid = id / VSIZE, l = id % VSIZE;
@@ -372,7 +390,7 @@ void mul2cond_P12(const __global uint32_2 * restrict const wr12, const __global 
 
 	frwd2_P12(u_P12, wr12[sj]);
 
-	if ((c & cMask[k % VSIZE]) != 0)
+	if ((getcval(c, l / 64) & cMask[l % 64]) != 0)
 	{
 		for (size_t h = 0; h < 2; ++h) u_P12[h] = mul_P12(u_P12[h], y12[k + h * VSIZE]);
 	}
@@ -386,7 +404,7 @@ __kernel
 void mul2cond_P123(const __global uint32_2 * restrict const wr12, const __global uint32 * restrict const wr3,
 	const __global uint32_2 * restrict const wri12, const __global uint32 * restrict const wri3,
 	const __global uint32_2 * restrict const y12, __global uint32 * restrict const y3,
-	__global uint32_2 * restrict const x12,  __global uint32 * restrict const x3, const uint64 c)
+	__global uint32_2 * restrict const x12,  __global uint32 * restrict const x3, const uint64_16 c)
 {
 	const size_t id = get_global_id(0);
 	const size_t vid = id / VSIZE, l = id % VSIZE;
@@ -401,7 +419,7 @@ void mul2cond_P123(const __global uint32_2 * restrict const wr12, const __global
 	frwd2_P12(u_P12, wr12[sj]);
 	frwd2_P3(u_P3, wr3[sj]);
 
-	if ((c & cMask[k % VSIZE]) != 0)
+	if ((getcval(c, l / 64) & cMask[l % 64]) != 0)
 	{
 		for (size_t h = 0; h < 2; ++h) u_P12[h] = mul_P12(u_P12[h], y12[k + h * VSIZE]);
 		for (size_t h = 0; h < 2; ++h) u_P3[h] = mul_P3(u_P3[h], y3[k + h * VSIZE]);
@@ -671,7 +689,7 @@ void square4_P123(const __global uint32_2 * restrict const wr12, const __global 
 
 __kernel
 void mul4cond_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,
-	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12, const uint64 c)
+	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12, const uint64_16 c)
 {
 	const size_t id = get_global_id(0);
 	const size_t vid = id / VSIZE, l = id % VSIZE;
@@ -684,7 +702,7 @@ void mul4cond_P12(const __global uint32_2 * restrict const wr12, const __global 
 	frwd41_P12(u_P12, wr12[sj]);
 	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]);
 
-	if ((c & cMask[k % VSIZE]) != 0)
+	if ((getcval(c, l / 64) & cMask[l % 64]) != 0)
 	{
 		for (size_t h = 0; h < 4; ++h) u_P12[h] = mul_P12(u_P12[h], y12[k + h * VSIZE]);
 	}
@@ -699,7 +717,7 @@ __kernel
 void mul4cond_P123(const __global uint32_2 * restrict const wr12, const __global uint32 * restrict const wr3,
 	const __global uint32_2 * restrict const wri12, const __global uint32 * restrict const wri3,
 	const __global uint32_2 * restrict const y12, const __global uint32 * restrict const y3,
-	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3, const uint64 c)
+	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3, const uint64_16 c)
 {
 	const size_t id = get_global_id(0);
 	const size_t vid = id / VSIZE, l = id % VSIZE;
@@ -716,7 +734,7 @@ void mul4cond_P123(const __global uint32_2 * restrict const wr12, const __global
 	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]);
 	frwd42_P3(u_P3, wr3[2 * sj], wr3[2 * sj + 1]);
 
-	if ((c & cMask[k % VSIZE]) != 0)
+	if ((getcval(c, l / 64) & cMask[l % 64]) != 0)
 	{
 		for (size_t h = 0; h < 4; ++h) u_P12[h] = mul_P12(u_P12[h], y12[k + h * VSIZE]);
 		for (size_t h = 0; h < 4; ++h) u_P3[h] = mul_P3(u_P3[h], y3[k + h * VSIZE]);

@@ -141,15 +141,16 @@ private:
 		const int n = this->_n;
 		const size_t m = size_t(1) << n;
 		transform * const t = this->_transform;
+		const size_t vsize = t->getVsize();
 
 		if (!t->gerbiczCheck(a)) throw std::runtime_error("Gerbicz failed");
 
-		bool isPrime[VSIZE];
-		uint64_t r[VSIZE], r64[VSIZE];
+		bool isPrime[VSIZE_MAX];
+		uint64_t r[VSIZE_MAX], r64[VSIZE_MAX];
 		t->isPrime(isPrime, r, r64);
 
 		std::ostringstream ssr;
-		for (size_t i = 0; i < VSIZE; ++i)
+		for (size_t i = 0; i < vsize; ++i)
 		{
 			if ((i > 0) && (b[i] == b[i - 1])) continue;
 
@@ -180,13 +181,14 @@ private:
 public:
 	void bench()
 	{
+		const size_t vsize = this->_transform->getVsize();
 		double elapsedTimeGPU = 0, elapsedTimeCPU = 0;
 		uint32 bi = 400000000;
 		for (size_t j = 1; true; ++j)
 		{
 			const timer::time t0 = timer::currentTime();
 			vint32 b;
-			for (size_t i = 0; i < VSIZE; ++i) { b[i] = bi; bi += 2; }
+			for (size_t i = 0; i < vsize; ++i) { b[i] = bi; bi += 2; }
 			check_GPU(b, 2);
 			const timer::time t1 = timer::currentTime();
 			elapsedTimeGPU += timer::diffTime(t1, t0);
@@ -196,7 +198,7 @@ public:
 			{
 				const double elapsedTime = elapsedTimeGPU + elapsedTimeCPU;
 				std::cout << std::setprecision(3) << "GPU: " << 100 * elapsedTimeGPU / elapsedTime << "%, CPU: " << 100 * elapsedTimeCPU / elapsedTime
-					<< "%, " << (j * VSIZE / elapsedTime) << " GFN-" << this->_n << "/sec" << std::endl;
+					<< "%, " << (j * vsize / elapsedTime) << " GFN-" << this->_n << "/sec" << std::endl;
 				// return;
 			}
 			if (_quit) return;
@@ -204,7 +206,7 @@ public:
 	}
 
 private:
-	static void parseFile(const std::string & filename, std::vector<vint32> & bVec)
+	static void parseFile(const std::string & filename, std::vector<vint32> & bVec, const size_t vsize)
 	{
 		std::ifstream inFile(filename);
 		if (!inFile.is_open()) throw std::runtime_error("cannot open input file");
@@ -219,7 +221,7 @@ private:
 			if (i == 0) lgb = ilog2(u);
 			else if (ilog2(u) != lgb)
 			{
-				while (i != VSIZE)
+				while (i != vsize)
 				{
 					b[i] = b[i - 1];
 					++i;
@@ -230,7 +232,7 @@ private:
 			}
 			b[i] = u;
 			++i;
-			if (i == VSIZE)
+			if (i == vsize)
 			{
 				bVec.push_back(b);
 				i = 0;
@@ -238,7 +240,7 @@ private:
 		}
 		if (i > 0)
 		{
-			while (i != VSIZE)
+			while (i != vsize)
 			{
 				b[i] = b[i - 1];
 				++i;
@@ -252,8 +254,9 @@ private:
 public:
 	bool checkFile(const std::string & filename)
 	{
+		const size_t vsize = this->_transform->getVsize();
 		std::vector<vint32> bVec;
-		parseFile(filename, bVec);
+		parseFile(filename, bVec, vsize);
 
 		size_t i0 = 0, n = bVec.size();
 

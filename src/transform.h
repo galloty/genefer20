@@ -17,7 +17,7 @@ Please give feedback to the authors if improvement is realized. It is distribute
 
 #include "ocl/kernel.h"
 
-typedef std::array<uint32_t, VSIZE> vint32;
+typedef std::array<uint32_t, VSIZE_MAX> vint32;
 
 inline int ilog2(const uint32_t n) { return 31 - __builtin_clz(n); }
 
@@ -95,10 +95,11 @@ private:
 	uint32 * const _x;
 	uint32_2 * const _gx;
 	uint32_2 * const _gd;
+	size_t _vsize = 0;
 	bool _3primes = true;
 	int _b_s = 0;
-	uint32 _b[VSIZE];
-	uint64 _c[32];
+	uint32 _b[VSIZE_MAX];
+	uint64_16 _c[32];
 
 private:
 	static size_t bitRev(const size_t i, const size_t n)
@@ -203,7 +204,7 @@ private:
 	}
 
 private:
-	void mulMod(const uint64 c) const
+	void mulMod(const uint64_16 & c) const
 	{
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
@@ -272,16 +273,14 @@ private:
 		return true;
 	}
 
-
-public:
-	transform(const size_t size, engine & engine, const bool isBoinc) :
-		_n(size), _isBoinc(isBoinc), _engine(engine),
-		_x(new uint32[VSIZE * size]), _gx(new uint32_2[VSIZE * size]), _gd(new uint32_2[VSIZE * size])
+private:
+	void initEngine() const
 	{
 		const size_t n = this->_n;
+		const size_t vsize = this->_vsize;
 
 		std::stringstream src;
-		src << "#define\tVSIZE\t" << VSIZE << std::endl;
+		src << "#define\tVSIZE\t" << vsize << std::endl;
 		src << "#define\tCSIZE\t" << CSIZE << std::endl << std::endl;
 		src << "#define\tnorm1\t" << Zp1::norm(n).get() << "u" << std::endl;
 		src << "#define\tnorm2\t" << Zp2::norm(n).get() << "u" << std::endl;
@@ -292,7 +291,7 @@ public:
 		if (!readOpenCL("ocl/kernel.cl", "src/ocl/kernel.h", "src_ocl_kernel", src)) src << src_ocl_kernel;
 
 		_engine.loadProgram(src.str());
-		_engine.allocMemory(this->_n);
+		_engine.allocMemory(n, vsize);
 		_engine.createKernels();
 
 		std::vector<uint32> wr1(n), wr2(n), wr3(n), wri1(n), wri2(n), wri3(n);
@@ -304,17 +303,61 @@ public:
 		_engine.writeMemory_w(wr12.data(), wr3.data(), wri12.data(), wri3.data());
 	}
 
-public:
-	virtual ~transform()
+private:
+	void releaseEngine() const
 	{
-		delete[] _x;
-		delete[] _gx;
-		delete[] _gd;
-
 		_engine.releaseKernels();
 		_engine.releaseMemory();
 		_engine.clearProgram();
 	}
+
+public:
+	transform(const size_t size, engine & engine, const bool isBoinc) :
+		_n(size), _isBoinc(isBoinc), _engine(engine),
+		_x(new uint32[VSIZE_MAX * size]), _gx(new uint32_2[VSIZE_MAX * size]), _gd(new uint32_2[VSIZE_MAX * size])
+	{
+		std::cout << " auto-tuning...\r";
+		double bestTime = 1e100;
+		size_t bestVsize = 32;
+		vint32 b;
+		for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 100000000 + 210 * i;
+
+		engine.setProfiling(true);
+		for (size_t vsize = 16; vsize <= VSIZE_MAX; vsize *= 2)
+		{
+			this->_vsize = vsize;
+			initEngine();
+			init(b, 2);
+			engine.resetProfiles();
+			for (size_t i = 0; i < 16; ++i) powMod();
+			const double time = engine.getProfileTime() / double(vsize);
+			if (time < bestTime)
+			{
+				bestTime = time;
+				bestVsize = vsize;
+			}
+			// std::cout << vsize << ", " << time << std::endl;
+			releaseEngine();
+		}
+		std::cout << "Vector size = " << bestVsize << std::endl;
+
+		this->_vsize = bestVsize;
+		engine.setProfiling(false);
+		initEngine();
+	}
+
+public:
+	virtual ~transform()
+	{
+		releaseEngine();
+
+		delete[] _x;
+		delete[] _gx;
+		delete[] _gd;
+	}
+
+public:
+	size_t getVsize() const { return this->_vsize; }
 
 public:
 	void copyRes() { _engine.setxres_P1(); }
@@ -331,33 +374,36 @@ public:
 	void init(const vint32 & b, const uint32_t a)
 	{
 		const size_t n = this->_n;
-		const uint32_t bmax = b[VSIZE - 1];
+		const size_t vsize = this->_vsize;
+
+		const uint32_t bmax = b[vsize - 1];
 		this->_3primes = (bmax * uint64_t(bmax) >= (P1P2 / (2 * n)));
 
 		const int32 s = ilog2(bmax) - 1;
 		this->_b_s = s;
 
-		uint32_2 bb_inv[VSIZE];
-		for (size_t i = 0; i < VSIZE; ++i)
+		std::vector<uint32_2> bb_inv(vsize);
+		for (size_t i = 0; i < vsize; ++i)
 		{
 			this->_b[i] = b[i];
 			bb_inv[i].s[0] = b[i];
 			bb_inv[i].s[1] = uint32((uint64(1) << (s + 32)) / b[i]);
 		}
 
-		uint64 * const c = this->_c;
+		uint64_16 * const c = this->_c;
 		for (int j = s; j >= 0; --j)
 		{
-			uint64 cj = 0;
-			for (size_t i = 0; i < VSIZE; ++i)
+			uint64_16 cj; cj.s[0] = cj.s[1] = cj.s[2]= cj.s[3] = cj.s[4] = cj.s[5] = cj.s[6]= cj.s[7] = 0;
+			cj.s[8] = cj.s[9] = cj.s[10] = cj.s[11] = cj.s[12] = cj.s[13] = cj.s[14] = cj.s[15] = 0;
+			for (size_t i = 0; i < vsize; ++i)
 			{
 				const uint64 ci = ((b[i] & (uint32(1) << j)) != 0) ? 1 : 0;
-				cj |= ci << i;
+				cj.s[i / 64] |= ci << i;
 			}
 			c[j] = cj;
 		}
 
-		_engine.writeMemory_b(bb_inv);
+		_engine.writeMemory_b(bb_inv.data());
 		_engine.setParam_bs(s);
 
 		if (this->_3primes) _engine.reset_P123(a);
@@ -369,13 +415,14 @@ public:
 	{
 		initMultiplicand();
 
-		const uint64 * const c = this->_c;
+		const uint64_16 * const c = this->_c;
 
 		for (int j = this->_b_s; j >= 0; --j)
 		{
 			squareMod();
-			const uint64 cj = c[j];
-			if (cj != 0) mulMod(cj);
+			const uint64 cj = c[j].s[0] | c[j].s[1] | c[j].s[2] | c[j].s[3] | c[j].s[4] | c[j].s[5] | c[j].s[6] | c[j].s[7]
+							| c[j].s[8] | c[j].s[9] | c[j].s[10] | c[j].s[11] | c[j].s[12] | c[j].s[13] | c[j].s[14] | c[j].s[15];
+			if (cj != 0) mulMod(c[j]);
 		}
 	}
 
@@ -447,18 +494,19 @@ public:
 	bool gerbiczCheck(const uint32_t a) const
 	{
 		const size_t n = this->_n;
+		const size_t vsize = this->_vsize;
 		const uint32_2 * const x = this->_gx;
 		uint32_2 * const d = this->_gd;
 		const uint32 * const b = this->_b;
 
-		int32 f[VSIZE];
-		for (size_t i = 0; i < VSIZE; ++i) f[i] = 0;
+		int32 f[VSIZE_MAX];
+		for (size_t i = 0; i < vsize; ++i) f[i] = 0;
 
 		for (size_t j = 0; j < n; ++j)
 		{
-			for (size_t i = 0; i < VSIZE; ++i)
+			for (size_t i = 0; i < vsize; ++i)
 			{
-				const size_t k = j * VSIZE + i;
+				const size_t k = j * vsize + i;
 				const uint32 xk = x[k].s[0], dk = d[k].s[0];
 				const uint32 cxk = (xk > P1 / 2) ? P1 : 0, cdk = (dk > P1 / 2) ? P1 : 0;
 				const int32 ixk = int32(xk - cxk), idk = int32(dk - cdk);
@@ -468,7 +516,7 @@ public:
 			}
 		}
 
-		for (size_t i = 0; i < VSIZE; ++i)
+		for (size_t i = 0; i < vsize; ++i)
 		{
 			int32 e = f[i];
 			while (e != 0)
@@ -476,7 +524,7 @@ public:
 				e = -e;		// a_0 = -a_n
 				for (size_t j = 0; j < n; ++j)
 				{
-					const size_t k = j * VSIZE + i;
+					const size_t k = j * vsize + i;
 					e += int32(d[k].s[0]);
 					d[k].s[0] = reduce32(e, b[i]);
 					if (e == 0) break;
@@ -484,26 +532,27 @@ public:
 			}
 		}
 
-		for (size_t k = 0; k < VSIZE * n; ++k) if (d[k].s[0] != 0) return false;
+		for (size_t k = 0; k < vsize * n; ++k) if (d[k].s[0] != 0) return false;
 
 		return true;
 	}
 
 public:
-	void isPrime(bool prm[VSIZE], uint64_t res[VSIZE], uint64_t res64[VSIZE]) const
+	void isPrime(bool prm[VSIZE_MAX], uint64_t res[VSIZE_MAX], uint64_t res64[VSIZE_MAX]) const
 	{
 		const size_t n = this->_n;
+		const size_t vsize = this->_vsize;
 		uint32 * const x = this->_x;
 		const uint32 * const b = this->_b;
 
-		int32 f[VSIZE];
-		for (size_t i = 0; i < VSIZE; ++i) f[i] = 0;
+		int32 f[VSIZE_MAX];
+		for (size_t i = 0; i < vsize; ++i) f[i] = 0;
 
 		for (size_t j = 0; j < n; ++j)
 		{
-			for (size_t i = 0; i < VSIZE; ++i)
+			for (size_t i = 0; i < vsize; ++i)
 			{
-				const size_t k = j * VSIZE + i;
+				const size_t k = j * vsize + i;
 				const uint32 xk = x[k];
 				const int32 ixk = (xk > P1 / 2) ? int32(xk - P1) : int32(xk);
 				int64 e = f[i] + int64(ixk);
@@ -512,7 +561,7 @@ public:
 			}
 		}
 
-		for (size_t i = 0; i < VSIZE; ++i)
+		for (size_t i = 0; i < vsize; ++i)
 		{
 			int32 e = f[i];
 			while (e != 0)
@@ -520,7 +569,7 @@ public:
 				e = -e;		// a_0 = -a_n
 				for (size_t j = 0; j < n; ++j)
 				{
-					const size_t k = j * VSIZE + i;
+					const size_t k = j * vsize + i;
 					e += int32(x[k]);
 					x[k] = reduce32(e, b[i]);
 					if (e == 0) break;
@@ -530,23 +579,23 @@ public:
 			uint64_t r = 0;
 			for (size_t j = 8; j > 0; --j)
 			{
-				r = (r << 8) | uint8_t(x[(n - j) * VSIZE + i]);
+				r = (r << 8) | uint8_t(x[(n - j) * vsize + i]);
 			}
 			res[i] = r;
 
 			prm[i] = (x[i] == 1);
 		}
 
-		uint64_t bi[VSIZE];
-		for (size_t i = 0; i < VSIZE; ++i) bi[i] = b[i];
+		uint64_t bi[VSIZE_MAX];
+		for (size_t i = 0; i < vsize; ++i) bi[i] = b[i];
 
-		for (size_t i = 0; i < VSIZE; ++i) res64[i] = x[i];
+		for (size_t i = 0; i < vsize; ++i) res64[i] = x[i];
 
 		for (size_t j = 1; j < n; ++j)
 		{
-			for (size_t i = 0; i < VSIZE; ++i)
+			for (size_t i = 0; i < vsize; ++i)
 			{
-				const size_t k = j * VSIZE + i;
+				const size_t k = j * vsize + i;
 				const uint32 xk = x[k];
 				prm[i] &= (xk == 0);
 				res64[i] += xk * bi[i];
