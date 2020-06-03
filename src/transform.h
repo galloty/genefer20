@@ -165,11 +165,7 @@ private:
 		{
 			_engine.setxy_P123();
 			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4y_P123(s, lm);
-			if (odd)
-			{
-				_engine.forward2y_P12(n / 2, 0);
-				_engine.forward2y_P3(n / 2, 0);
-			}
+			if (odd) _engine.forward2y_P123(n / 2, 0);
 		}
 		else
 		{
@@ -364,8 +360,8 @@ public:
 		_engine.writeMemory_b(bb_inv);
 		_engine.setParam_bs(s);
 
-		_engine.reset_P12(a);
-		if (this->_3primes) _engine.reset_P3(a);
+		if (this->_3primes) _engine.reset_P123(a);
+		else _engine.reset_P12(a);
 	}
 
 public:
@@ -393,42 +389,22 @@ public:
 		if (this->_3primes)
 		{
 			_engine.setxy_P123();
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4y_P123(s, lm);
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4d_P123(s, lm);
-			if (odd)
-			{
-				_engine.forward2y_P12(n / 2, 0);
-				_engine.forward2y_P3(n / 2, 0);
-				_engine.forward2d_P12(n / 2, 0);
-				_engine.forward2d_P3(n / 2, 0);
-				_engine.mul2dy_P12();
-				_engine.mul2dy_P3();
-				_engine.backward2d_P12(n / 2, 0);
-				_engine.backward2d_P3(n / 2, 0);
-			}
-			else
-			{
-				_engine.mul2dy_P12();
-				_engine.mul2dy_P3();
-			}
-			for (size_t lm = odd ? 1 : 0, s = odd ? n / 8 : n / 4; s > 0; lm += 2, s /= 4) _engine.backward4d_P123(s, lm);
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4y_P123(s, lm);
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4d_P123(s, lm);
+			if (odd) _engine.mul2dy_P123();
+			else _engine.mul4dy_P123();
+			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4d_P123(s, lm);
 			_engine.normalize3ad();
 			_engine.normalize3bd();
 		}
 		else
 		{
 			_engine.setxy_P12();
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4y_P12(s, lm);
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4d_P12(s, lm);
-			if (odd)
-			{
-				_engine.forward2y_P12(n / 2, 0);
-				_engine.forward2d_P12(n / 2, 0);
-				_engine.mul2dy_P12();
-				_engine.backward2d_P12(n / 2, 0);
-			}
-			else _engine.mul2dy_P12();
-			for (size_t lm = odd ? 1 : 0, s = odd ? n / 8 : n / 4; s > 0; lm += 2, s /= 4) _engine.backward4d_P12(s, lm);
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4y_P12(s, lm);
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4d_P12(s, lm);
+			if (odd) _engine.mul2dy_P12();
+			else _engine.mul4dy_P12();
+			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4d_P12(s, lm);
 			_engine.normalize2ad();
 			_engine.normalize2bd();
 		}
@@ -444,25 +420,25 @@ public:
 		if (this->_3primes)
 		{
 			_engine.setdy_P123();
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4y_P123(s, lm);
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4x_P123(s, lm);
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4y_P123(s, lm);
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P123(s, lm);
 			if (odd)
 			{
-				_engine.forward2y_P12(n / 2, 0);
-				_engine.forward2y_P3(n / 2, 0);
-				_engine.forward2x_P12(n / 2, 0);
-				_engine.forward2x_P3(n / 2, 0);
-				_engine.mul2xy_P12();
-				_engine.mul2xy_P3();
-				_engine.backward2x_P12(n / 2, 0);
-				_engine.backward2x_P3(n / 2, 0);
+				_engine.forward2y_P123(n / 2, 0);
+				_engine.forward2x_P123(n / 2, 0);
+				_engine._mul2xy_P12();
+				_engine._mul2xy_P3();
+				_engine.backward2x_P123(n / 2, 0);
 			}
 			else
 			{
-				_engine.mul2xy_P12();
-				_engine.mul2xy_P3();
+				_engine.forward4y_P123(n / 4, 0);
+				_engine.forward4x_P123(n / 4, 0);
+				_engine._mul2xy_P12();
+				_engine._mul2xy_P3();
+				_engine.backward4x_P123(n / 4, 0);
 			}
-			for (size_t lm = odd ? 1 : 0, s = odd ? n / 8 : n / 4; s > 0; lm += 2, s /= 4) _engine.backward4x_P123(s, lm);
+			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P123(s, lm);
 			_engine.swap_xd_P123();
 			_engine.normalize3ad();
 			_engine.normalize3bd();
@@ -470,17 +446,23 @@ public:
 		else
 		{
 			_engine.setdy_P12();
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4y_P12(s, lm);
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4x_P12(s, lm);
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4y_P12(s, lm);
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P12(s, lm);
 			if (odd)
 			{
 				_engine.forward2y_P12(n / 2, 0);
 				_engine.forward2x_P12(n / 2, 0);
-				_engine.mul2xy_P12();
+				_engine._mul2xy_P12();
 				_engine.backward2x_P12(n / 2, 0);
 			}
-			else _engine.mul2xy_P12();
-			for (size_t lm = odd ? 1 : 0, s = odd ? n / 8 : n / 4; s > 0; lm += 2, s /= 4) _engine.backward4x_P12(s, lm);
+			else
+			{
+				_engine.forward4y_P12(n / 4, 0);
+				_engine.forward4x_P12(n / 4, 0);
+				_engine._mul2xy_P12();
+				_engine.backward4x_P12(n / 4, 0);
+			}
+			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P12(s, lm);
 			_engine.swap_xd_P12();
 			_engine.normalize2ad();
 			_engine.normalize2bd();
