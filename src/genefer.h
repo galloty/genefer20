@@ -183,7 +183,7 @@ public:
 	{
 		const size_t vsize = this->_transform->getVsize();
 		double elapsedTimeGPU = 0, elapsedTimeCPU = 0;
-		uint32 bi = 400000000;
+		uint32 bi = 300000000;
 		for (size_t j = 1; true; ++j)
 		{
 			const timer::time t0 = timer::currentTime();
@@ -203,6 +203,16 @@ public:
 			}
 			if (_quit) return;
 		}
+	}
+
+public:
+	void valid()
+	{
+		transform * const t = this->_transform;
+		const size_t vsize = t->getVsize();
+		vint32 b;
+		for (size_t i = 0; i < vsize; ++i) b[i] = 300000000 + 2 * uint32(i);
+		check(b, 2, true);
 	}
 
 private:

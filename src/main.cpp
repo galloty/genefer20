@@ -150,7 +150,7 @@ public:
 		if (args.empty()) return;
 
 		size_t d = 0;
-		int n = 8;	// test
+		int n = 10;	// test
 		std::string filename;	// = "GFN8.txt";	// test
 		// parse args
 		for (size_t i = 0, size = args.size(); i < size; ++i)
@@ -182,6 +182,8 @@ public:
 		engine eng(platform, d);
 
 		gen.init(n, eng, bBoinc);
+
+		// gen.valid(); return;
 
 		if (!filename.empty())
 		{

@@ -318,12 +318,12 @@ public:
 	{
 		std::cout << " auto-tuning...\r";
 		double bestTime = 1e100;
-		size_t bestVsize = 32;
+		size_t bestVsize = CSIZE;
 		vint32 b;
 		for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 100000000 + 210 * i;
 
 		engine.setProfiling(true);
-		for (size_t vsize = 16; vsize <= VSIZE_MAX; vsize *= 2)
+		for (size_t vsize = CSIZE; vsize <= VSIZE_MAX; vsize *= 2)
 		{
 			this->_vsize = vsize;
 			initEngine();
@@ -339,7 +339,7 @@ public:
 			// std::cout << vsize << ", " << time << std::endl;
 			releaseEngine();
 		}
-		std::cout << "Vector size = " << bestVsize << std::endl;
+		std::cout << "Vector size = " << bestVsize << std::endl << std::endl;
 
 		this->_vsize = bestVsize;
 		engine.setProfiling(false);
