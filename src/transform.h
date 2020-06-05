@@ -204,7 +204,7 @@ private:
 	}
 
 private:
-	void mulMod(const uint64_16 & c) const
+	void mulMod64(const uint64 & c) const
 	{
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
@@ -213,8 +213,8 @@ private:
 		if (this->_3primes)
 		{
 			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P123(s, lm);
-			if (odd) _engine.mul2condxy_P123(c);
-			else _engine.mul4condxy_P123(c);
+			if (odd) _engine.mul2cond64xy_P123(c);
+			else _engine.mul4cond64xy_P123(c);
 			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P123(s, lm);
 			_engine.normalize3ax();
 			_engine.normalize3bx();
@@ -222,8 +222,35 @@ private:
 		else
 		{
 			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P12(s, lm);
-			if (odd) _engine.mul2condxy_P12(c);
-			else _engine.mul4condxy_P12(c);
+			if (odd) _engine.mul2cond64xy_P12(c);
+			else _engine.mul4cond64xy_P12(c);
+			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P12(s, lm);
+			_engine.normalize2ax();
+			_engine.normalize2bx();
+		}
+	}
+
+private:
+	void mulMod1024(const uint64_16 & c) const
+	{
+		const size_t n = this->_n;
+		const int ln = ilog2(uint32_t(n));
+		const bool odd = (ln % 2 != 0);
+
+		if (this->_3primes)
+		{
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P123(s, lm);
+			if (odd) _engine.mul2cond1024xy_P123(c);
+			else _engine.mul4cond1024xy_P123(c);
+			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P123(s, lm);
+			_engine.normalize3ax();
+			_engine.normalize3bx();
+		}
+		else
+		{
+			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P12(s, lm);
+			if (odd) _engine.mul2cond1024xy_P12(c);
+			else _engine.mul4cond1024xy_P12(c);
 			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P12(s, lm);
 			_engine.normalize2ax();
 			_engine.normalize2bx();
@@ -316,7 +343,7 @@ public:
 		_n(size), _isBoinc(isBoinc), _engine(engine),
 		_x(new uint32[VSIZE_MAX * size]), _gx(new uint32_2[VSIZE_MAX * size]), _gd(new uint32_2[VSIZE_MAX * size])
 	{
-		std::cout << " auto-tuning...\r";
+		// std::cout << " auto-tuning...\r";
 		double bestTime = 1e100;
 		size_t bestVsize = CSIZE;
 		vint32 b;
@@ -326,18 +353,28 @@ public:
 		for (size_t vsize = CSIZE; vsize <= VSIZE_MAX; vsize *= 2)
 		{
 			this->_vsize = vsize;
+
 			initEngine();
 			init(b, 2);
 			engine.resetProfiles();
-			for (size_t i = 0; i < 16; ++i) powMod();
+			for (size_t i = 1; i < 16; ++i)
+			{
+				powMod();
+				if ((i & (8 - 1)) == 0) gerbiczStep();
+			}
 			const double time = engine.getProfileTime() / double(vsize);
+			powMod(); copyRes(); gerbiczLastStep();
+			for (size_t j = 0; j < 8; ++j) powMod();
+			saveRes();
+			if (!gerbiczCheck(2)) throw std::runtime_error("Gerbicz failed");
+			releaseEngine();
+
 			if (time < bestTime)
 			{
 				bestTime = time;
 				bestVsize = vsize;
 			}
-			// std::cout << vsize << ", " << time << std::endl;
-			releaseEngine();
+			std::cout << vsize << ", " << int64_t(time * size * 1e-6 / 16) << " ms/b" << std::endl;
 		}
 		std::cout << "Vector size = " << bestVsize << std::endl << std::endl;
 
@@ -417,12 +454,24 @@ public:
 
 		const uint64_16 * const c = this->_c;
 
-		for (int j = this->_b_s; j >= 0; --j)
+		if (this->_vsize <= 64)
 		{
-			squareMod();
-			const uint64 cj = c[j].s[0] | c[j].s[1] | c[j].s[2] | c[j].s[3] | c[j].s[4] | c[j].s[5] | c[j].s[6] | c[j].s[7]
-							| c[j].s[8] | c[j].s[9] | c[j].s[10] | c[j].s[11] | c[j].s[12] | c[j].s[13] | c[j].s[14] | c[j].s[15];
-			if (cj != 0) mulMod(c[j]);
+			for (int j = this->_b_s; j >= 0; --j)
+			{
+				squareMod();
+				const uint64 cj = c[j].s[0];
+				if (cj != 0) mulMod64(cj);
+			}
+		}
+		else
+		{
+			for (int j = this->_b_s; j >= 0; --j)
+			{
+				squareMod();
+				const uint64 cj = c[j].s[0] | c[j].s[1] | c[j].s[2] | c[j].s[3] | c[j].s[4] | c[j].s[5] | c[j].s[6] | c[j].s[7]
+								| c[j].s[8] | c[j].s[9] | c[j].s[10] | c[j].s[11] | c[j].s[12] | c[j].s[13] | c[j].s[14] | c[j].s[15];
+				if (cj != 0) mulMod1024(c[j]);
+			}
 		}
 	}
 
