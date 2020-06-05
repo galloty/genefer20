@@ -253,91 +253,91 @@ inline void bkwd2_P3(uint32 * const u_P3, const uint32 wi3)
 	u_P3[0] = add_P3(u_P3[0], u_P3[1]); u_P3[1] = mul_P3(v1_P3, wi3);
 }
 
+inline void read2_P12(uint32_2 * const u_P12, const __global uint32_2 * const x12, const size_t k, const uint32 m)
+{
+	for (size_t h = 0; h < 2; ++h) u_P12[h] = x12[k + h * VSIZE * m];
+}
+inline void read2_P3(uint32 * const u_P3, const __global uint32 * const x3, const size_t k, const uint32 m)
+{
+	for (size_t h = 0; h < 2; ++h) u_P3[h] = x3[k + h * VSIZE * m];
+}
+
+inline void write2_P12(__global uint32_2 * const x12, const uint32_2 * const u_P12, const size_t k, const uint32 m)
+{
+	for (size_t h = 0; h < 2; ++h) x12[k + h * VSIZE * m] = u_P12[h];
+}
+inline void write2_P3(__global uint32 * const x3, const uint32 * const u_P3, const size_t k, const uint32 m)
+{
+	for (size_t h = 0; h < 2; ++h) x3[k + h * VSIZE * m] = u_P3[h];
+}
+
 __kernel
 void forward2_P12(const __global uint32_2 * restrict const wr12, __global uint32_2 * restrict const x12, const uint32 s, const uint32 m, const int lm)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = s + (vid >> lm), i = vid & (m - 1), mj = vid - i, k = VSIZE * (2 * mj + i) + l;
 
-	uint32_2 u_P12[2];
-	for (size_t h = 0; h < 2; ++h) u_P12[h] = x12[k + h * VSIZE * m];
+	uint32_2 u_P12[2]; read2_P12(u_P12, x12, k, m);
 
 	frwd2_P12(u_P12, wr12[sj]);
 
-	for (size_t h = 0; h < 2; ++h) x12[k + h * VSIZE * m] = u_P12[h];
+	write2_P12(x12, u_P12, k, m);
 }
 
 __kernel
 void forward2_P123(const __global uint32_2 * restrict const wr12, const __global uint32 * restrict const wr3,
 	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3, const uint32 s, const uint32 m, const int lm)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = s + (vid >> lm), i = vid & (m - 1), mj = vid - i, k = VSIZE * (2 * mj + i) + l;
 
-	uint32_2 u_P12[2];
-	for (size_t h = 0; h < 2; ++h) u_P12[h] = x12[k + h * VSIZE * m];
-	uint32 u_P3[2];
-	for (size_t h = 0; h < 2; ++h) u_P3[h] = x3[k + h * VSIZE * m];
+	uint32_2 u_P12[2]; read2_P12(u_P12, x12, k, m); uint32 u_P3[2]; read2_P3(u_P3, x3, k, m);
 
-	frwd2_P12(u_P12, wr12[sj]);
-	frwd2_P3(u_P3, wr3[sj]);
+	frwd2_P12(u_P12, wr12[sj]); frwd2_P3(u_P3, wr3[sj]);
 
-	for (size_t h = 0; h < 2; ++h) x12[k + h * VSIZE * m] = u_P12[h];
-	for (size_t h = 0; h < 2; ++h) x3[k + h * VSIZE * m] = u_P3[h];
+	write2_P12(x12, u_P12, k, m); write2_P3(x3, u_P3, k, m);
 }
 
 __kernel
 void backward2_P12(const __global uint32_2 * restrict const wri12, __global uint32_2 * restrict const x12, const uint32 s, const uint32 m, const int lm)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = s + (vid >> lm), i = vid & (m - 1), mj = vid - i, k = VSIZE * (2 * mj + i) + l;
 
-	uint32_2 u_P12[2];
-	for (size_t h = 0; h < 2; ++h) u_P12[h] = x12[k + h * VSIZE * m];
+	uint32_2 u_P12[2]; read2_P12(u_P12, x12, k, m);
 
 	bkwd2_P12(u_P12, wri12[sj]);
 
-	for (size_t h = 0; h < 2; ++h) x12[k + h * VSIZE * m] = u_P12[h];
+	write2_P12(x12, u_P12, k, m);
 }
 
 __kernel
 void backward2_P123(const __global uint32_2 * restrict const wri12, const __global uint32 * restrict const wri3,
 	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3, const uint32 s, const uint32 m, const int lm)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = s + (vid >> lm), i = vid & (m - 1), mj = vid - i, k = VSIZE * (2 * mj + i) + l;
 
-	uint32_2 u_P12[2];
-	for (size_t h = 0; h < 2; ++h) u_P12[h] = x12[k + h * VSIZE * m];
-	uint32 u_P3[2];
-	for (size_t h = 0; h < 2; ++h) u_P3[h] = x3[k + h * VSIZE * m];
+	uint32_2 u_P12[2]; read2_P12(u_P12, x12, k, m); uint32 u_P3[2]; read2_P3(u_P3, x3, k, m);
 
-	bkwd2_P12(u_P12, wri12[sj]);
-	bkwd2_P3(u_P3, wri3[sj]);
+	bkwd2_P12(u_P12, wri12[sj]); bkwd2_P3(u_P3, wri3[sj]);
 
-	for (size_t h = 0; h < 2; ++h) x12[k + h * VSIZE * m] = u_P12[h];
-	for (size_t h = 0; h < 2; ++h) x3[k + h * VSIZE * m] = u_P3[h];
+	write2_P12(x12, u_P12, k, m); write2_P3(x3, u_P3, k, m);
 }
 
 __kernel
 void square2_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,
 	__global uint32_2 * restrict const x12)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 2 * vid + l;
 
-	uint32_2 u_P12[2];
-	for (size_t h = 0; h < 2; ++h) u_P12[h] = x12[k + h * VSIZE];
+	uint32_2 u_P12[2]; read2_P12(u_P12, x12, k, 1);
 
 	frwd2_P12(u_P12, wr12[sj]);
 
@@ -345,7 +345,7 @@ void square2_P12(const __global uint32_2 * restrict const wr12, const __global u
 
 	bkwd2_P12(u_P12, wri12[sj]);
 
-	for (size_t h = 0; h < 2; ++h) x12[k + h * VSIZE] = u_P12[h];
+	write2_P12(x12, u_P12, k, 1);
 }
 
 __kernel
@@ -353,40 +353,31 @@ void square2_P123(const __global uint32_2 * restrict const wr12, const __global 
 	const __global uint32_2 * restrict const wri12, const __global uint32 * restrict const wri3,
 	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 2 * vid + l;
 
-	uint32_2 u_P12[2];
-	for (size_t h = 0; h < 2; ++h) u_P12[h] = x12[k + h * VSIZE];
-	uint32 u_P3[2];
-	for (size_t h = 0; h < 2; ++h) u_P3[h] = x3[k + h * VSIZE];
+	uint32_2 u_P12[2]; read2_P12(u_P12, x12, k, 1); uint32 u_P3[2]; read2_P3(u_P3, x3, k, 1);
 
-	frwd2_P12(u_P12, wr12[sj]);
-	frwd2_P3(u_P3, wr3[sj]);
+	frwd2_P12(u_P12, wr12[sj]); frwd2_P3(u_P3, wr3[sj]);
 
 	for (size_t h = 0; h < 2; ++h) u_P12[h] = mul_P12(u_P12[h], u_P12[h]);
 	for (size_t h = 0; h < 2; ++h) u_P3[h] = mul_P3(u_P3[h], u_P3[h]);
 
-	bkwd2_P12(u_P12, wri12[sj]);
-	bkwd2_P3(u_P3, wri3[sj]);
+	bkwd2_P12(u_P12, wri12[sj]); bkwd2_P3(u_P3, wri3[sj]);
 
-	for (size_t h = 0; h < 2; ++h) x12[k + h * VSIZE] = u_P12[h];
-	for (size_t h = 0; h < 2; ++h) x3[k + h * VSIZE] = u_P3[h];
+	write2_P12(x12, u_P12, k, 1); write2_P3(x3, u_P3, k, 1);
 }
 
 __kernel
 void mul2cond_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,
 	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12, const uint64_16 c)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 2 * vid + l;
 
-	uint32_2 u_P12[2];
-	for (size_t h = 0; h < 2; ++h) u_P12[h] = x12[k + h * VSIZE];
+	uint32_2 u_P12[2]; read2_P12(u_P12, x12, k, 1);
 
 	frwd2_P12(u_P12, wr12[sj]);
 
@@ -397,7 +388,7 @@ void mul2cond_P12(const __global uint32_2 * restrict const wr12, const __global 
 
 	bkwd2_P12(u_P12, wri12[sj]);
 
-	for (size_t h = 0; h < 2; ++h) x12[k + h * VSIZE] = u_P12[h];
+	write2_P12(x12, u_P12, k, 1);
 }
 
 __kernel
@@ -406,18 +397,13 @@ void mul2cond_P123(const __global uint32_2 * restrict const wr12, const __global
 	const __global uint32_2 * restrict const y12, __global uint32 * restrict const y3,
 	__global uint32_2 * restrict const x12,  __global uint32 * restrict const x3, const uint64_16 c)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 2 * vid + l;
 
-	uint32_2 u_P12[2];
-	for (size_t h = 0; h < 2; ++h) u_P12[h] = x12[k + h * VSIZE];
-	uint32 u_P3[2];
-	for (size_t h = 0; h < 2; ++h) u_P3[h] = x3[k + h * VSIZE];
+	uint32_2 u_P12[2]; read2_P12(u_P12, x12, k, 1); uint32 u_P3[2]; read2_P3(u_P3, x3, k, 1);
 
-	frwd2_P12(u_P12, wr12[sj]);
-	frwd2_P3(u_P3, wr3[sj]);
+	frwd2_P12(u_P12, wr12[sj]); frwd2_P3(u_P3, wr3[sj]);
 
 	if ((getcval(c, l / 64) & cMask[l % 64]) != 0)
 	{
@@ -425,31 +411,26 @@ void mul2cond_P123(const __global uint32_2 * restrict const wr12, const __global
 		for (size_t h = 0; h < 2; ++h) u_P3[h] = mul_P3(u_P3[h], y3[k + h * VSIZE]);
 	}
 
-	bkwd2_P12(u_P12, wri12[sj]);
-	bkwd2_P3(u_P3, wri3[sj]);
+	bkwd2_P12(u_P12, wri12[sj]); bkwd2_P3(u_P3, wri3[sj]);
 
-	for (size_t h = 0; h < 2; ++h) x12[k + h * VSIZE] = u_P12[h];
-	for (size_t h = 0; h < 2; ++h) x3[k + h * VSIZE] = u_P3[h];
+	write2_P12(x12, u_P12, k, 1); write2_P3(x3, u_P3, k, 1);
 }
 
 __kernel
 void mul2_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,
 	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 2 * vid + l;
 
 	const uint32_2 wr12_1 = wr12[sj];
 
-	uint32_2 u_P12[2];
-	for (size_t h = 0; h < 2; ++h) u_P12[h] = x12[k + h * VSIZE];
+	uint32_2 u_P12[2]; read2_P12(u_P12, x12, k, 1);
 
 	frwd2_P12(u_P12, wr12_1);
 
-	uint32_2 v_P12[2];
-	for (size_t h = 0; h < 2; ++h) v_P12[h] = y12[k + h * VSIZE];
+	uint32_2 v_P12[2]; read2_P12(v_P12, y12, k, 1);
 
 	frwd2_P12(v_P12, wr12_1);
 
@@ -457,7 +438,7 @@ void mul2_P12(const __global uint32_2 * restrict const wr12, const __global uint
 
 	bkwd2_P12(u_P12, wri12[sj]);
 
-	for (size_t h = 0; h < 2; ++h) x12[k + h * VSIZE] = u_P12[h];
+	write2_P12(x12, u_P12, k, 1);
 }
 
 __kernel
@@ -466,38 +447,27 @@ void mul2_P123(const __global uint32_2 * restrict const wr12, const __global uin
 	const __global uint32_2 * restrict const y12, __global uint32 * restrict const y3,
 	__global uint32_2 * restrict const x12,  __global uint32 * restrict const x3)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 2 * vid + l;
 
 	const uint32_2 wr12_1 = wr12[sj];
 	const uint32 wr3_1 = wr3[sj];
 
-	uint32_2 u_P12[2];
-	for (size_t h = 0; h < 2; ++h) u_P12[h] = x12[k + h * VSIZE];
-	uint32 u_P3[2];
-	for (size_t h = 0; h < 2; ++h) u_P3[h] = x3[k + h * VSIZE];
+	uint32_2 u_P12[2]; read2_P12(u_P12, x12, k, 1); uint32 u_P3[2]; read2_P3(u_P3, x3, k, 1);
 
-	frwd2_P12(u_P12, wr12_1);
-	frwd2_P3(u_P3, wr3_1);
+	frwd2_P12(u_P12, wr12_1); frwd2_P3(u_P3, wr3_1);
 
-	uint32_2 v_P12[2];
-	for (size_t h = 0; h < 2; ++h) v_P12[h] = y12[k + h * VSIZE];
-	uint32 v_P3[2];
-	for (size_t h = 0; h < 2; ++h) v_P3[h] = y3[k + h * VSIZE];
+	uint32_2 v_P12[2]; read2_P12(v_P12, y12, k, 1); uint32 v_P3[2]; read2_P3(v_P3, y3, k, 1);
 
-	frwd2_P12(v_P12, wr12_1);
-	frwd2_P3(v_P3, wr3_1);
+	frwd2_P12(v_P12, wr12_1); frwd2_P3(v_P3, wr3_1);
 
 	for (size_t h = 0; h < 2; ++h) u_P12[h] = mul_P12(u_P12[h], v_P12[h]);
 	for (size_t h = 0; h < 2; ++h) u_P3[h] = mul_P3(u_P3[h], v_P3[h]);
 
-	bkwd2_P12(u_P12, wri12[sj]);
-	bkwd2_P3(u_P3, wri3[sj]);
+	bkwd2_P12(u_P12, wri12[sj]); bkwd2_P3(u_P3, wri3[sj]);
 
-	for (size_t h = 0; h < 2; ++h) x12[k + h * VSIZE] = u_P12[h];
-	for (size_t h = 0; h < 2; ++h) x3[k + h * VSIZE] = u_P3[h];
+	write2_P12(x12, u_P12, k, 1); write2_P3(x3, u_P3, k, 1);
 }
 
 inline void frwd41_P12(uint32_2 * const u_P12, const uint32_2 w12_1)
@@ -552,97 +522,95 @@ inline void bkwd41_P3(uint32 * const u_P3, const uint32 wi3_1)
 	u_P3[1] = add_P3(u_P3[1], u_P3[3]); u_P3[3] = mul_P3(v3_P3, wi3_1);
 }
 
+inline void read4_P12(uint32_2 * const u_P12, const __global uint32_2 * const x12, const size_t k, const uint32 m)
+{
+	for (size_t h = 0; h < 4; ++h) u_P12[h] = x12[k + h * VSIZE * m];
+}
+inline void read4_P3(uint32 * const u_P3, const __global uint32 * const x3, const size_t k, const uint32 m)
+{
+	for (size_t h = 0; h < 4; ++h) u_P3[h] = x3[k + h * VSIZE * m];
+}
+
+inline void write4_P12(__global uint32_2 * const x12, const uint32_2 * const u_P12, const size_t k, const uint32 m)
+{
+	for (size_t h = 0; h < 4; ++h) x12[k + h * VSIZE * m] = u_P12[h];
+}
+inline void write4_P3(__global uint32 * const x3, const uint32 * const u_P3, const size_t k, const uint32 m)
+{
+	for (size_t h = 0; h < 4; ++h) x3[k + h * VSIZE * m] = u_P3[h];
+}
+
 __kernel
 void forward4_P12(const __global uint32_2 * restrict const wr12, __global uint32_2 * restrict const x12, const uint32 s, const uint32 m, const int lm)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = s + (vid >> lm), i = vid & (m - 1), mj = vid - i, k = VSIZE * (4 * mj + i) + l;
 
-	uint32_2 u_P12[4];
-	for (size_t h = 0; h < 4; ++h) u_P12[h] = x12[k + h * VSIZE * m];
+	uint32_2 u_P12[4]; read4_P12(u_P12, x12, k, m);
 
 	frwd41_P12(u_P12, wr12[sj]);
 	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]);
 
-	for (size_t h = 0; h < 4; ++h) x12[k + h * VSIZE * m] = u_P12[h];
+	write4_P12(x12, u_P12, k, m);
 }
 
 __kernel
 void forward4_P123(const __global uint32_2 * restrict const wr12, const __global uint32 * restrict const wr3,
 	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3, const uint32 s, const uint32 m, const int lm)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = s + (vid >> lm), i = vid & (m - 1), mj = vid - i, k = VSIZE * (4 * mj + i) + l;
 
-	uint32_2 u_P12[4];
-	for (size_t h = 0; h < 4; ++h) u_P12[h] = x12[k + h * VSIZE * m];
-	uint32 u_P3[4];
-	for (size_t h = 0; h < 4; ++h) u_P3[h] = x3[k + h * VSIZE * m];
+	uint32_2 u_P12[4]; read4_P12(u_P12, x12, k, m); uint32 u_P3[4]; read4_P3(u_P3, x3, k, m);
 
-	frwd41_P12(u_P12, wr12[sj]);
-	frwd41_P3(u_P3, wr3[sj]);
-	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]);
-	frwd42_P3(u_P3, wr3[2 * sj], wr3[2 * sj + 1]);
+	frwd41_P12(u_P12, wr12[sj]); frwd41_P3(u_P3, wr3[sj]);
+	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]); frwd42_P3(u_P3, wr3[2 * sj], wr3[2 * sj + 1]);
 
-	for (size_t h = 0; h < 4; ++h) x12[k + h * VSIZE * m] = u_P12[h];
-	for (size_t h = 0; h < 4; ++h) x3[k + h * VSIZE * m] = u_P3[h];
+	write4_P12(x12, u_P12, k, m); write4_P3(x3, u_P3, k, m);
 }
 
 __kernel
 void backward4_P12(const __global uint32_2 * restrict const wri12, __global uint32_2 * restrict const x12, const uint32 s, const uint32 m, const int lm)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = s + (vid >> lm), i = vid & (m - 1), mj = vid - i, k = VSIZE * (4 * mj + i) + l;
 
-	uint32_2 u_P12[4];
-	for (size_t h = 0; h < 4; ++h) u_P12[h] = x12[k + h * VSIZE * m];
+	uint32_2 u_P12[4]; read4_P12(u_P12, x12, k, m);
 
 	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]);
 	bkwd41_P12(u_P12, wri12[sj]);
 
-	for (size_t h = 0; h < 4; ++h) x12[k + h * VSIZE * m] = u_P12[h];
+	write4_P12(x12, u_P12, k, m);
 }
 
 __kernel
 void backward4_P123(const __global uint32_2 * restrict const wri12, const __global uint32 * restrict const wri3,
 	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3, const uint32 s, const uint32 m, const int lm)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = s + (vid >> lm), i = vid & (m - 1), mj = vid - i, k = VSIZE * (4 * mj + i) + l;
 
-	uint32_2 u_P12[4];
-	for (size_t h = 0; h < 4; ++h) u_P12[h] = x12[k + h * VSIZE * m];
-	uint32 u_P3[4];
-	for (size_t h = 0; h < 4; ++h) u_P3[h] = x3[k + h * VSIZE * m];
+	uint32_2 u_P12[4]; read4_P12(u_P12, x12, k, m); uint32 u_P3[4]; read4_P3(u_P3, x3, k, m);
 
-	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]);
-	bkwd42_P3(u_P3, wri3[2 * sj], wri3[2 * sj + 1]);
-	bkwd41_P12(u_P12, wri12[sj]);
-	bkwd41_P3(u_P3, wri3[sj]);
+	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]); bkwd42_P3(u_P3, wri3[2 * sj], wri3[2 * sj + 1]);
+	bkwd41_P12(u_P12, wri12[sj]); bkwd41_P3(u_P3, wri3[sj]);
 
-	for (size_t h = 0; h < 4; ++h) x12[k + h * VSIZE * m] = u_P12[h];
-	for (size_t h = 0; h < 4; ++h) x3[k + h * VSIZE * m] = u_P3[h];
+	write4_P12(x12, u_P12, k, m); write4_P3(x3, u_P3, k, m);
 }
 
 __kernel
 void square4_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,
 	__global uint32_2 * restrict const x12)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 4 * vid + l;
 
-	uint32_2 u_P12[4];
-	for (size_t h = 0; h < 4; ++h) u_P12[h] = x12[k + h * VSIZE];
+	uint32_2 u_P12[4]; read4_P12(u_P12, x12, k, 1);
 
 	frwd41_P12(u_P12, wr12[sj]);
 	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]);
@@ -652,7 +620,7 @@ void square4_P12(const __global uint32_2 * restrict const wr12, const __global u
 	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]);
 	bkwd41_P12(u_P12, wri12[sj]);
 
-	for (size_t h = 0; h < 4; ++h) x12[k + h * VSIZE] = u_P12[h];
+	write4_P12(x12, u_P12, k, 1);
 }
 
 __kernel
@@ -660,44 +628,33 @@ void square4_P123(const __global uint32_2 * restrict const wr12, const __global 
 	const __global uint32_2 * restrict const wri12, const __global uint32 * restrict const wri3,
 	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 4 * vid + l;
 
-	uint32_2 u_P12[4];
-	for (size_t h = 0; h < 4; ++h) u_P12[h] = x12[k + h * VSIZE];
-	uint32 u_P3[4];
-	for (size_t h = 0; h < 4; ++h) u_P3[h] = x3[k + h * VSIZE];
+	uint32_2 u_P12[4]; read4_P12(u_P12, x12, k, 1); uint32 u_P3[4]; read4_P3(u_P3, x3, k, 1);
 
-	frwd41_P12(u_P12, wr12[sj]);
-	frwd41_P3(u_P3, wr3[sj]);
-	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]);
-	frwd42_P3(u_P3, wr3[2 * sj], wr3[2 * sj + 1]);
+	frwd41_P12(u_P12, wr12[sj]); frwd41_P3(u_P3, wr3[sj]);
+	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]); frwd42_P3(u_P3, wr3[2 * sj], wr3[2 * sj + 1]);
 
 	for (size_t h = 0; h < 4; ++h) u_P12[h] = mul_P12(u_P12[h], u_P12[h]);
 	for (size_t h = 0; h < 4; ++h) u_P3[h] = mul_P3(u_P3[h], u_P3[h]);
 
-	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]);
-	bkwd42_P3(u_P3, wri3[2 * sj], wri3[2 * sj + 1]);
-	bkwd41_P12(u_P12, wri12[sj]);
-	bkwd41_P3(u_P3, wri3[sj]);
+	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]); bkwd42_P3(u_P3, wri3[2 * sj], wri3[2 * sj + 1]);
+	bkwd41_P12(u_P12, wri12[sj]); bkwd41_P3(u_P3, wri3[sj]);
 
-	for (size_t h = 0; h < 4; ++h) x12[k + h * VSIZE] = u_P12[h];
-	for (size_t h = 0; h < 4; ++h) x3[k + h * VSIZE] = u_P3[h];
+	write4_P12(x12, u_P12, k, 1); write4_P3(x3, u_P3, k, 1);
 }
 
 __kernel
 void mul4cond_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,
 	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12, const uint64_16 c)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 4 * vid + l;
 
-	uint32_2 u_P12[4];
-	for (size_t h = 0; h < 4; ++h) u_P12[h] = x12[k + h * VSIZE];
+	uint32_2 u_P12[4]; read4_P12(u_P12, x12, k, 1);
 
 	frwd41_P12(u_P12, wr12[sj]);
 	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]);
@@ -710,7 +667,7 @@ void mul4cond_P12(const __global uint32_2 * restrict const wr12, const __global 
 	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]);
 	bkwd41_P12(u_P12, wri12[sj]);
 
-	for (size_t h = 0; h < 4; ++h) x12[k + h * VSIZE] = u_P12[h];
+	write4_P12(x12, u_P12, k, 1);
 }
 
 __kernel
@@ -719,20 +676,14 @@ void mul4cond_P123(const __global uint32_2 * restrict const wr12, const __global
 	const __global uint32_2 * restrict const y12, const __global uint32 * restrict const y3,
 	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3, const uint64_16 c)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 4 * vid + l;
 
-	uint32_2 u_P12[4];
-	for (size_t h = 0; h < 4; ++h) u_P12[h] = x12[k + h * VSIZE];
-	uint32 u_P3[4];
-	for (size_t h = 0; h < 4; ++h) u_P3[h] = x3[k + h * VSIZE];
+	uint32_2 u_P12[4]; read4_P12(u_P12, x12, k, 1); uint32 u_P3[4]; read4_P3(u_P3, x3, k, 1);
 
-	frwd41_P12(u_P12, wr12[sj]);
-	frwd41_P3(u_P3, wr3[sj]);
-	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]);
-	frwd42_P3(u_P3, wr3[2 * sj], wr3[2 * sj + 1]);
+	frwd41_P12(u_P12, wr12[sj]); frwd41_P3(u_P3, wr3[sj]);
+	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]); frwd42_P3(u_P3, wr3[2 * sj], wr3[2 * sj + 1]);
 
 	if ((getcval(c, l / 64) & cMask[l % 64]) != 0)
 	{
@@ -740,34 +691,28 @@ void mul4cond_P123(const __global uint32_2 * restrict const wr12, const __global
 		for (size_t h = 0; h < 4; ++h) u_P3[h] = mul_P3(u_P3[h], y3[k + h * VSIZE]);
 	}
 
-	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]);
-	bkwd42_P3(u_P3, wri3[2 * sj], wri3[2 * sj + 1]);
-	bkwd41_P12(u_P12, wri12[sj]);
-	bkwd41_P3(u_P3, wri3[sj]);
+	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]); bkwd42_P3(u_P3, wri3[2 * sj], wri3[2 * sj + 1]);
+	bkwd41_P12(u_P12, wri12[sj]); bkwd41_P3(u_P3, wri3[sj]);
 
-	for (size_t h = 0; h < 4; ++h) x12[k + h * VSIZE] = u_P12[h];
-	for (size_t h = 0; h < 4; ++h) x3[k + h * VSIZE] = u_P3[h];
+	write4_P12(x12, u_P12, k, 1); write4_P3(x3, u_P3, k, 1);
 }
 
 __kernel
 void mul4_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,
 	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 4 * vid + l;
 
 	const uint32_2 wr12_1 = wr12[sj], wr12_2 = wr12[2 * sj], wr12_3 = wr12[2 * sj + 1];
 
-	uint32_2 u_P12[4];
-	for (size_t h = 0; h < 4; ++h) u_P12[h] = x12[k + h * VSIZE];
+	uint32_2 u_P12[4]; read4_P12(u_P12, x12, k, 1);
 
 	frwd41_P12(u_P12, wr12_1);
 	frwd42_P12(u_P12, wr12_2, wr12_3);
 
-	uint32_2 v_P12[4];
-	for (size_t h = 0; h < 4; ++h) v_P12[h] = y12[k + h * VSIZE];
+	uint32_2 v_P12[4]; read4_P12(v_P12, y12, k, 1);
 
 	frwd41_P12(v_P12, wr12_1);
 	frwd42_P12(v_P12, wr12_2, wr12_3);
@@ -777,7 +722,7 @@ void mul4_P12(const __global uint32_2 * restrict const wr12, const __global uint
 	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]);
 	bkwd41_P12(u_P12, wri12[sj]);
 
-	for (size_t h = 0; h < 4; ++h) x12[k + h * VSIZE] = u_P12[h];
+	write4_P12(x12, u_P12, k, 1);
 }
 
 __kernel
@@ -786,44 +731,30 @@ void mul4_P123(const __global uint32_2 * restrict const wr12, const __global uin
 	const __global uint32_2 * restrict const y12, const __global uint32 * restrict const y3,
 	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3)
 {
-	const size_t id = get_global_id(0);
-	const size_t vid = id / VSIZE, l = id % VSIZE;
+	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;
 
 	const size_t sj = get_global_size(0) / VSIZE + vid, k = VSIZE * 4 * vid + l;
 
 	const uint32_2 wr12_1 = wr12[sj], wr12_2 = wr12[2 * sj], wr12_3 = wr12[2 * sj + 1];
 	const uint32 wr3_1 = wr3[sj], wr3_2 = wr3[2 * sj], wr3_3 = wr3[2 * sj + 1];
 
-	uint32_2 u_P12[4];
-	for (size_t h = 0; h < 4; ++h) u_P12[h] = x12[k + h * VSIZE];
-	uint32 u_P3[4];
-	for (size_t h = 0; h < 4; ++h) u_P3[h] = x3[k + h * VSIZE];
+	uint32_2 u_P12[4]; read4_P12(u_P12, x12, k, 1); uint32 u_P3[4]; read4_P3(u_P3, x3, k, 1);
 
-	frwd41_P12(u_P12, wr12_1);
-	frwd41_P3(u_P3, wr3_1);
-	frwd42_P12(u_P12, wr12_2, wr12_3);
-	frwd42_P3(u_P3, wr3_2, wr3_3);
+	frwd41_P12(u_P12, wr12_1); frwd41_P3(u_P3, wr3_1);
+	frwd42_P12(u_P12, wr12_2, wr12_3); frwd42_P3(u_P3, wr3_2, wr3_3);
 
-	uint32_2 v_P12[4];
-	for (size_t h = 0; h < 4; ++h) v_P12[h] = y12[k + h * VSIZE];
-	uint32 v_P3[4];
-	for (size_t h = 0; h < 4; ++h) v_P3[h] = y3[k + h * VSIZE];
+	uint32_2 v_P12[4]; read4_P12(v_P12, y12, k, 1); uint32 v_P3[4]; read4_P3(v_P3, y3, k, 1);
 
-	frwd41_P12(v_P12, wr12_1);
-	frwd41_P3(v_P3, wr3_1);
-	frwd42_P12(v_P12, wr12_2, wr12_3);
-	frwd42_P3(v_P3, wr3_2, wr3_3);
+	frwd41_P12(v_P12, wr12_1); frwd41_P3(v_P3, wr3_1);
+	frwd42_P12(v_P12, wr12_2, wr12_3); frwd42_P3(v_P3, wr3_2, wr3_3);
 
 	for (size_t h = 0; h < 4; ++h) u_P12[h] = mul_P12(u_P12[h], v_P12[h]);
 	for (size_t h = 0; h < 4; ++h) u_P3[h] = mul_P3(u_P3[h], v_P3[h]);
 
-	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]);
-	bkwd42_P3(u_P3, wri3[2 * sj], wri3[2 * sj + 1]);
-	bkwd41_P12(u_P12, wri12[sj]);
-	bkwd41_P3(u_P3, wri3[sj]);
+	bkwd42_P12(u_P12, wri12[2 * sj + 0], wri12[2 * sj + 1]); bkwd42_P3(u_P3, wri3[2 * sj], wri3[2 * sj + 1]);
+	bkwd41_P12(u_P12, wri12[sj]); bkwd41_P3(u_P3, wri3[sj]);
 
-	for (size_t h = 0; h < 4; ++h) x12[k + h * VSIZE] = u_P12[h];
-	for (size_t h = 0; h < 4; ++h) x3[k + h * VSIZE] = u_P3[h];
+	write4_P12(x12, u_P12, k, 1); write4_P3(x3, u_P3, k, 1);
 }
 
 inline uint32 barrett(const uint64 a, const uint32 b, const uint32 b_inv, const int b_s, uint32 * a_p)
