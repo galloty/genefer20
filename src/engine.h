@@ -16,7 +16,7 @@ typedef cl_long		int64;
 typedef cl_uint2	uint32_2;
 typedef cl_ulong16	uint64_16;
 
-#define VSIZE_MAX	(64 * 16)
+#define VSIZE_MAX	256		//(64 * 16)
 #define	CSIZE		8
 
 class engine : public ocl::device
@@ -28,6 +28,7 @@ private:
 	cl_kernel _set_P1 = nullptr, _setxy_P12 = nullptr, _setxy_P123 = nullptr, _setdy_P12 = nullptr, _setdy_P123 = nullptr;
 	cl_kernel _swap_P12 = nullptr, _swap_P123 = nullptr, _reset_P12 = nullptr, _reset_P123 = nullptr;
 	cl_kernel _square2_P12 = nullptr, _square2_P123 = nullptr, _square4_P12 = nullptr, _square4_P123 = nullptr;
+	cl_kernel _square8_P12 = nullptr, _square16_P12 = nullptr;
 	cl_kernel _mul2cond64_P12 = nullptr, _mul2cond64_P123 = nullptr, _mul4cond64_P12 = nullptr, _mul4cond64_P123 = nullptr;
 	cl_kernel _mul2cond1024_P12 = nullptr, _mul2cond1024_P123 = nullptr, _mul4cond1024_P12 = nullptr, _mul4cond1024_P123 = nullptr;
 	cl_kernel _mul2_P12 = nullptr, _mul2_P123 = nullptr, _mul4_P12 = nullptr, _mul4_P123 = nullptr;
@@ -188,6 +189,9 @@ public:
 		createKernel_square_P12(_square4_P12, "square4_P12");
 		createKernel_square_P123(_square4_P123, "square4_P123");
 
+		createKernel_square_P12(_square8_P12, "square8_P12");
+		createKernel_square_P12(_square16_P12, "square16_P12");
+
 		createKernel_mulcond_P12(_mul2cond64_P12, "mul2cond64_P12");
 		createKernel_mulcond_P123(_mul2cond64_P123, "mul2cond64_P123");
 		createKernel_mulcond_P12(_mul4cond64_P12, "mul4cond64_P12");
@@ -251,6 +255,7 @@ public:
 		_releaseKernel(_set_P1); _releaseKernel(_setxy_P12); _releaseKernel(_setdy_P12); _releaseKernel(_setxy_P123); _releaseKernel(_setdy_P123);
 		_releaseKernel(_swap_P12); _releaseKernel(_swap_P123); _releaseKernel(_reset_P12); _releaseKernel(_reset_P123);
 		_releaseKernel(_square2_P12); _releaseKernel(_square2_P123); _releaseKernel(_square4_P12); _releaseKernel(_square4_P123);
+		_releaseKernel(_square8_P12); _releaseKernel(_square16_P12);
 		_releaseKernel(_mul2cond64_P12); _releaseKernel(_mul2cond64_P123); _releaseKernel(_mul4cond64_P12); _releaseKernel(_mul4cond64_P123);
 		_releaseKernel(_mul2cond1024_P12); _releaseKernel(_mul2cond1024_P123); _releaseKernel(_mul4cond1024_P12); _releaseKernel(_mul4cond1024_P123);
 		_releaseKernel(_mul2_P12); _releaseKernel(_mul2_P123); _releaseKernel(_mul4_P12); _releaseKernel(_mul4_P123);
@@ -321,6 +326,10 @@ public:
 	void square2x_P123() { _executeKernel(_square2_P123, this->_vnsize / 2); }
 	void square4x_P12() { _executeKernel(_square4_P12, this->_vnsize / 4); }
 	void square4x_P123() { _executeKernel(_square4_P123, this->_vnsize / 4); }
+
+public:
+	void square8x_P12() { _executeKernel(_square8_P12, this->_vnsize / 4, this->_vsize * 8 / 4); }
+	void square16x_P12() { _executeKernel(_square16_P12, this->_vnsize / 4, this->_vsize * 16 / 4); }
 
 public:
 	void mul2cond64xy_P12(const uint64 c)
