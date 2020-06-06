@@ -28,7 +28,7 @@ private:
 	cl_kernel _set_P1 = nullptr, _setxy_P12 = nullptr, _setxy_P123 = nullptr, _setdy_P12 = nullptr, _setdy_P123 = nullptr;
 	cl_kernel _swap_P12 = nullptr, _swap_P123 = nullptr, _reset_P12 = nullptr, _reset_P123 = nullptr;
 	cl_kernel _square2_P12 = nullptr, _square2_P123 = nullptr, _square4_P12 = nullptr, _square4_P123 = nullptr;
-	cl_kernel _square8_P12 = nullptr, _square16_P12 = nullptr;
+	cl_kernel _square8_P12 = nullptr, _square8_P3 = nullptr, _square16_P12 = nullptr, _square16_P3 = nullptr;
 	cl_kernel _mul2cond64_P12 = nullptr, _mul2cond64_P123 = nullptr, _mul4cond64_P12 = nullptr, _mul4cond64_P123 = nullptr;
 	cl_kernel _mul2cond1024_P12 = nullptr, _mul2cond1024_P123 = nullptr, _mul4cond1024_P12 = nullptr, _mul4cond1024_P123 = nullptr;
 	cl_kernel _mul2_P12 = nullptr, _mul2_P123 = nullptr, _mul4_P12 = nullptr, _mul4_P123 = nullptr;
@@ -91,6 +91,13 @@ private:
 		_setKernelArg(kernel, 0, sizeof(cl_mem), &_wr12);
 		_setKernelArg(kernel, 1, sizeof(cl_mem), &_wri12);
 		_setKernelArg(kernel, 2, sizeof(cl_mem), &_x12);
+	}
+	void createKernel_square_P3(cl_kernel & kernel, const char * const name)
+	{
+		kernel = _createKernel(name);
+		_setKernelArg(kernel, 0, sizeof(cl_mem), &_wr3);
+		_setKernelArg(kernel, 1, sizeof(cl_mem), &_wri3);
+		_setKernelArg(kernel, 2, sizeof(cl_mem), &_x3);
 	}
 	void createKernel_square_P123(cl_kernel & kernel, const char * const name)
 	{
@@ -190,7 +197,9 @@ public:
 		createKernel_square_P123(_square4_P123, "square4_P123");
 
 		createKernel_square_P12(_square8_P12, "square8_P12");
+		createKernel_square_P3(_square8_P3, "square8_P3");
 		createKernel_square_P12(_square16_P12, "square16_P12");
+		createKernel_square_P3(_square16_P3, "square16_P3");
 
 		createKernel_mulcond_P12(_mul2cond64_P12, "mul2cond64_P12");
 		createKernel_mulcond_P123(_mul2cond64_P123, "mul2cond64_P123");
@@ -255,7 +264,7 @@ public:
 		_releaseKernel(_set_P1); _releaseKernel(_setxy_P12); _releaseKernel(_setdy_P12); _releaseKernel(_setxy_P123); _releaseKernel(_setdy_P123);
 		_releaseKernel(_swap_P12); _releaseKernel(_swap_P123); _releaseKernel(_reset_P12); _releaseKernel(_reset_P123);
 		_releaseKernel(_square2_P12); _releaseKernel(_square2_P123); _releaseKernel(_square4_P12); _releaseKernel(_square4_P123);
-		_releaseKernel(_square8_P12); _releaseKernel(_square16_P12);
+		_releaseKernel(_square8_P12); _releaseKernel(_square8_P3); _releaseKernel(_square16_P12); _releaseKernel(_square16_P3);
 		_releaseKernel(_mul2cond64_P12); _releaseKernel(_mul2cond64_P123); _releaseKernel(_mul4cond64_P12); _releaseKernel(_mul4cond64_P123);
 		_releaseKernel(_mul2cond1024_P12); _releaseKernel(_mul2cond1024_P123); _releaseKernel(_mul4cond1024_P12); _releaseKernel(_mul4cond1024_P123);
 		_releaseKernel(_mul2_P12); _releaseKernel(_mul2_P123); _releaseKernel(_mul4_P12); _releaseKernel(_mul4_P123);
@@ -329,7 +338,9 @@ public:
 
 public:
 	void square8x_P12() { _executeKernel(_square8_P12, this->_vnsize / 4, this->_vsize * 8 / 4); }
+	void square8x_P3() { _executeKernel(_square8_P3, this->_vnsize / 4, this->_vsize * 8 / 4); }
 	void square16x_P12() { _executeKernel(_square16_P12, this->_vnsize / 4, this->_vsize * 16 / 4); }
+	void square16x_P3() { _executeKernel(_square16_P3, this->_vnsize / 4, this->_vsize * 16 / 4); }
 
 public:
 	void mul2cond64xy_P12(const uint64 c)
