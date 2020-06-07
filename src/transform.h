@@ -181,29 +181,28 @@ private:
 	{
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
-		const bool odd = (ln % 2 != 0);
 
 		if (this->_3primes)
 		{
-			size_t s = 1, lm = ln - 2;
-			for (; s < n / 64; s *= 16, lm -= 4) { _engine.forward16x_P12(s, lm - 2); _engine.forward16x_P3(s, lm - 2); }
-			if (s < n / 16) _engine.forward4x_P123(s, lm);
-			if (odd) { _engine.square8x_P12(); _engine.square8x_P3(); }
-			else { _engine.square16x_P12(); _engine.square16x_P3(); }
-			if (s < n / 16) _engine.backward4x_P123(s, lm);
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16x_P12(s, lm - 2); _engine.backward16x_P3(s, lm - 2); }
+			size_t s = 1, lm = ln;
+			for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16x_P12(s, lm - 4); _engine.forward16x_P3(s, lm - 4); }
+			if (lm == 1) _engine.square2x_P123();
+			else if (lm == 2) _engine.square4x_P123();
+			else if (lm == 3) { _engine.square8x_P12(); _engine.square8x_P3(); }
+			else if (lm == 4)  { _engine.square16x_P12(); _engine.square16x_P3(); }
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16x_P12(s, lm - 4); _engine.backward16x_P3(s, lm - 4); }
 			_engine.normalize3ax();
 			_engine.normalize3bx();
 		}
 		else
 		{
-			size_t s = 1, lm = ln - 2;
-			for (; s < n / 64; s *= 16, lm -= 4) _engine.forward16x_P12(s, lm - 2);
-			if (s < n / 16) _engine.forward4x_P12(s, lm);
-			if (odd) _engine.square8x_P12();
-			else _engine.square16x_P12();
-			if (s < n / 16) _engine.backward4x_P12(s, lm);
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x_P12(s, lm - 2);
+			size_t s = 1, lm = ln;
+			for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x_P12(s, lm - 4);
+			if (lm == 1) _engine.square2x_P12();
+			else if (lm == 2) _engine.square4x_P12();
+			else if (lm == 3) _engine.square8x_P12();
+			else if (lm == 4) _engine.square16x_P12();
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x_P12(s, lm - 4);
 			_engine.normalize2ax();
 			_engine.normalize2bx();
 		}
@@ -214,23 +213,26 @@ private:
 	{
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
-		const bool odd = (ln % 2 != 0);
 
 		if (this->_3primes)
 		{
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P123(s, lm);
-			if (odd) _engine.mul2cond64xy_P123(c);
-			else _engine.mul4cond64xy_P123(c);
-			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P123(s, lm);
+			size_t s = 1, lm = ln;
+			for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16x_P12(s, lm - 4); _engine.forward16x_P3(s, lm - 4); }
+			if (lm > 2) _engine.forward4x_P123(s, lm - 2);
+			if (lm % 2 != 0) _engine.mul2cond64xy_P123(c); else _engine.mul4cond64xy_P123(c);
+			if (lm > 2) _engine.backward4x_P123(s, lm - 2);
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16x_P12(s, lm - 4); _engine.backward16x_P3(s, lm - 4); }
 			_engine.normalize3ax();
 			_engine.normalize3bx();
 		}
 		else
 		{
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P12(s, lm);
-			if (odd) _engine.mul2cond64xy_P12(c);
-			else _engine.mul4cond64xy_P12(c);
-			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P12(s, lm);
+			size_t s = 1, lm = ln;
+			for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x_P12(s, lm - 4);
+			if (lm > 2) _engine.forward4x_P12(s, lm - 2);
+			if (lm % 2 != 0) _engine.mul2cond64xy_P12(c); else _engine.mul4cond64xy_P12(c);
+			if (lm > 2) _engine.backward4x_P12(s, lm - 2);
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x_P12(s, lm - 4);
 			_engine.normalize2ax();
 			_engine.normalize2bx();
 		}
@@ -241,23 +243,28 @@ private:
 	{
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
-		const bool odd = (ln % 2 != 0);
 
 		if (this->_3primes)
 		{
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P123(s, lm);
-			if (odd) _engine.mul2cond1024xy_P123(c);
+			size_t s = 1, lm = ln;
+			for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16x_P12(s, lm - 4); _engine.forward16x_P3(s, lm - 4); }
+			if (lm > 2) _engine.forward4x_P123(s, lm - 2);
+			if (lm % 2 != 0) _engine.mul2cond1024xy_P123(c);
 			else _engine.mul4cond1024xy_P123(c);
-			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P123(s, lm);
+			if (lm > 2) _engine.backward4x_P123(s, lm - 2);
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16x_P12(s, lm - 4); _engine.backward16x_P3(s, lm - 4); }
 			_engine.normalize3ax();
 			_engine.normalize3bx();
 		}
 		else
 		{
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P12(s, lm);
-			if (odd) _engine.mul2cond1024xy_P12(c);
+			size_t s = 1, lm = ln;
+			for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x_P12(s, lm - 4);
+			if (lm > 2) _engine.forward4x_P12(s, lm - 2);
+			if (lm % 2 != 0) _engine.mul2cond1024xy_P12(c);
 			else _engine.mul4cond1024xy_P12(c);
-			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P12(s, lm);
+			if (lm > 2) _engine.backward4x_P12(s, lm - 2);
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x_P12(s, lm - 4);
 			_engine.normalize2ax();
 			_engine.normalize2bx();
 		}
@@ -486,27 +493,30 @@ public:
 	{
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
-		const bool odd = (ln % 2 != 0);
 
 		if (this->_3primes)
 		{
 			_engine.setxy_P123();
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4y_P123(s, lm);
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4d_P123(s, lm);
-			if (odd) _engine.mul2dy_P123();
-			else _engine.mul4dy_P123();
-			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4d_P123(s, lm);
+			for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) { _engine.forward16y_P12(s, lm - 4); _engine.forward16y_P3(s, lm - 4); }
+			size_t s = 1, lm = ln;
+			for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16d_P12(s, lm - 4); _engine.forward16d_P3(s, lm - 4); }
+			if (lm > 2) { _engine.forward4y_P123(s, lm - 2); _engine.forward4d_P123(s, lm - 2); }
+			if (lm % 2 != 0) _engine.mul2dy_P123(); else _engine.mul4dy_P123();
+			if (lm > 2) _engine.backward4d_P123(s, lm - 2);
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16d_P12(s, lm - 4); _engine.backward16d_P3(s, lm - 4); }
 			_engine.normalize3ad();
 			_engine.normalize3bd();
 		}
 		else
 		{
 			_engine.setxy_P12();
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4y_P12(s, lm);
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4d_P12(s, lm);
-			if (odd) _engine.mul2dy_P12();
-			else _engine.mul4dy_P12();
-			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4d_P12(s, lm);
+			for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) _engine.forward16y_P12(s, lm - 4);
+			size_t s = 1, lm = ln;
+			for (; lm > 4; s *= 16, lm -= 4) _engine.forward16d_P12(s, lm - 4);
+			if (lm > 2) { _engine.forward4y_P12(s, lm - 2); _engine.forward4d_P12(s, lm - 2); }
+			if (lm % 2 != 0) _engine.mul2dy_P12(); else _engine.mul4dy_P12();
+			if (lm > 2) _engine.backward4d_P12(s, lm - 2);
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16d_P12(s, lm - 4);
 			_engine.normalize2ad();
 			_engine.normalize2bd();
 		}
@@ -517,16 +527,17 @@ public:
 	{
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
-		const bool odd = (ln % 2 != 0);
 
 		if (this->_3primes)
 		{
 			_engine.setdy_P123();
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4y_P123(s, lm);
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P123(s, lm);
-			if (odd) _engine.mul2xy_P123();
-			else _engine.mul4xy_P123();
-			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P123(s, lm);
+			for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) { _engine.forward16y_P12(s, lm - 4); _engine.forward16y_P3(s, lm - 4); }
+			size_t s = 1, lm = ln;
+			for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16x_P12(s, lm - 4); _engine.forward16x_P3(s, lm - 4); }
+			if (lm > 2) { _engine.forward4y_P123(s, lm - 2); _engine.forward4x_P123(s, lm - 2); }
+			if (lm % 2 != 0) _engine.mul2xy_P123(); else _engine.mul4xy_P123();
+			if (lm > 2) _engine.backward4x_P123(s, lm - 2);
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16x_P12(s, lm - 4); _engine.backward16x_P3(s, lm - 4); }
 			_engine.swap_xd_P123();
 			_engine.normalize3ad();
 			_engine.normalize3bd();
@@ -534,11 +545,13 @@ public:
 		else
 		{
 			_engine.setdy_P12();
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4y_P12(s, lm);
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P12(s, lm);
-			if (odd) _engine.mul2xy_P12();
-			else _engine.mul4xy_P12();
-			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P12(s, lm);
+			for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) _engine.forward16y_P12(s, lm - 4);
+			size_t s = 1, lm = ln;
+			for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x_P12(s, lm - 4);
+			if (lm > 2) { _engine.forward4y_P12(s, lm - 2); _engine.forward4x_P12(s, lm - 2); }
+			if (lm % 2 != 0) _engine.mul2xy_P12(); else _engine.mul4xy_P12();
+			if (lm > 2) _engine.backward4x_P12(s, lm - 2);
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x_P12(s, lm - 4);
 			_engine.swap_xd_P12();
 			_engine.normalize2ad();
 			_engine.normalize2bd();

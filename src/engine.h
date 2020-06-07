@@ -542,6 +542,10 @@ public:
 public:
 	void forward16x_P12(const uint32 s, const int32 lm) { forward16_P12(_x12, s, lm); }
 	void forward16x_P3(const uint32 s, const int32 lm) { forward16_P3(_x3, s, lm); }
+	void forward16y_P12(const uint32 s, const int32 lm) { forward16_P12(_y12, s, lm); }
+	void forward16y_P3(const uint32 s, const int32 lm) { forward16_P3(_y3, s, lm); }
+	void forward16d_P12(const uint32 s, const int32 lm) { forward16_P12(_d12, s, lm); }
+	void forward16d_P3(const uint32 s, const int32 lm) { forward16_P3(_d3, s, lm); }
 
 public:
 	void backward4x_P12(const uint32 s, const int32 lm) { backward4_P12(_x12, s, lm); }
@@ -552,6 +556,8 @@ public:
 public:
 	void backward16x_P12(const uint32 s, const int32 lm) { backward16_P12(_x12, s, lm); }
 	void backward16x_P3(const uint32 s, const int32 lm) { backward16_P3(_x3, s, lm); }
+	void backward16d_P12(const uint32 s, const int32 lm) { backward16_P12(_d12, s, lm); }
+	void backward16d_P3(const uint32 s, const int32 lm) { backward16_P3(_d3, s, lm); }
 
 public:
 	void normalize2ax()
