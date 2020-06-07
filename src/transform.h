@@ -125,15 +125,6 @@ private:
 				wr[s + i] = wrsi.get(); wri[s + s - i - 1] = Zp(-wrsi).get();
 			}
 		}
-
-		// const size_t m = 4 * n / 2;
-		// const Zp prRoot_m = Zp::prmRoot_n(m);
-		// for (size_t i = 0; i < n / 4; ++i)
-		// {
-		// 	const size_t e = bitRev(2 * i, 2 * n / 2) + 1;
-		// 	wr[n / 2 + i] = prRoot_m.pow(e).get();
-		// 	wri[n / 2 + i] = prRoot_m.pow(m - e).get();
-		// }
 	}
 
 private:
@@ -194,19 +185,25 @@ private:
 
 		if (this->_3primes)
 		{
-			for (size_t lm = ln - 2, s = 1; s < n / 4; lm -= 2, s *= 4) _engine.forward4x_P123(s, lm);
-			if (odd) _engine.square2x_P123();
-			else _engine.square4x_P123();
-			for (size_t lm = odd ? 1 : 2, s = odd ? n / 8 : n / 16; s > 0; lm += 2, s /= 4) _engine.backward4x_P123(s, lm);
+			size_t s = 1, lm = ln - 2;
+			for (; s < n / 64; s *= 16, lm -= 4) { _engine.forward16x_P12(s, lm - 2); _engine.forward16x_P3(s, lm - 2); }
+			if (s < n / 16) _engine.forward4x_P123(s, lm);
+			if (odd) { _engine.square8x_P12(); _engine.square8x_P3(); }
+			else { _engine.square16x_P12(); _engine.square16x_P3(); }
+			if (s < n / 16) _engine.backward4x_P123(s, lm);
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16x_P12(s, lm - 2); _engine.backward16x_P3(s, lm - 2); }
 			_engine.normalize3ax();
 			_engine.normalize3bx();
 		}
 		else
 		{
-			for (size_t lm = ln - 2, s = 1; s < n / 4 / 4; lm -= 2, s *= 4) _engine.forward4x_P12(s, lm);
+			size_t s = 1, lm = ln - 2;
+			for (; s < n / 64; s *= 16, lm -= 4) _engine.forward16x_P12(s, lm - 2);
+			if (s < n / 16) _engine.forward4x_P12(s, lm);
 			if (odd) _engine.square8x_P12();
 			else _engine.square16x_P12();
-			for (size_t lm = odd ? 1 + 2 : 2 + 2, s = odd ? n / 8 / 4 : n / 16 / 4; s > 0; lm += 2, s /= 4) _engine.backward4x_P12(s, lm);
+			if (s < n / 16) _engine.backward4x_P12(s, lm);
+			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x_P12(s, lm - 2);
 			_engine.normalize2ax();
 			_engine.normalize2bx();
 		}
