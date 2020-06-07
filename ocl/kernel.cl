@@ -685,6 +685,56 @@ void forward4_P123(const __global uint32_2 * restrict const wr12, const __global
 	write4_P12(x12, u_P12, k, m); write4_P3(x3, u_P3, k, m);
 }
 
+__kernel __attribute__((work_group_size_hint(16 / 4 * VSIZE, 1, 1)))
+void forward16_P12(const __global uint32_2 * restrict const wr12, __global uint32_2 * restrict const x12, const uint32 s, const uint32 m, const int lm)
+{
+	__local uint32_2 X12[16 * VSIZE];	// 32 KB => VSIZE = 256
+
+	const size_t gid = get_global_id(0), vid = gid / VSIZE, l = gid % VSIZE;
+	const size_t lid = get_local_id(0), i = lid / VSIZE, iv = lid & (size_t)~(VSIZE - 1);
+
+	const size_t vid_blk = (vid & (size_t)~(4 * m - 1)) * 4, idl = get_group_id(0) & (m - 1);
+	const size_t k0 = VSIZE * (vid_blk + idl) + l, miv = iv << lm;
+	const size_t sj4 = s * 4 + (vid_blk >> (lm + 2)) + i, sj = sj4 / 4;
+
+	uint32_2 u_P12[4]; read4_P12(u_P12, x12, k0 + miv, 4 * m);
+	frwd41_P12(u_P12, wr12[sj]);
+	frwd42_P12(u_P12, wr12[2 * sj], wr12[2 * sj + 1]);
+	write4l_P12(X12, u_P12, iv + l, 4);
+
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	uint32_2 v_P12[4]; read4l_P12(v_P12, X12, 4 * iv + l, 1);
+	frwd41_P12(v_P12, wr12[sj4]);
+	frwd42_P12(v_P12, wr12[2 * sj4], wr12[2 * sj4 + 1]);
+	write4_P12(x12, v_P12, k0 + 4 * miv, m);
+}
+
+__kernel __attribute__((work_group_size_hint(16 / 4 * VSIZE, 1, 1)))
+void forward16_P3(const __global uint32 * restrict const wr3, __global uint32 * restrict const x3, const uint32 s, const uint32 m, const int lm)
+{
+	__local uint32 X3[16 * VSIZE];
+
+	const size_t gid = get_global_id(0), vid = gid / VSIZE, l = gid % VSIZE;
+	const size_t lid = get_local_id(0), i = lid / VSIZE, iv = lid & (size_t)~(VSIZE - 1);
+
+	const size_t vid_blk = (vid & (size_t)~(4 * m - 1)) * 4, idl = get_group_id(0) & (m - 1);
+	const size_t k0 = VSIZE * (vid_blk + idl) + l, miv = iv << lm;
+	const size_t sj4 = s * 4 + (vid_blk >> (lm + 2)) + i, sj = sj4 / 4;
+
+	uint32 u_P3[4]; read4_P3(u_P3, x3, k0 + miv, 4 * m);
+	frwd41_P3(u_P3, wr3[sj]);
+	frwd42_P3(u_P3, wr3[2 * sj], wr3[2 * sj + 1]);
+	write4l_P3(X3, u_P3, iv + l, 4);
+
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	uint32 v_P3[4]; read4l_P3(v_P3, X3, 4 * iv + l, 1);
+	frwd41_P3(v_P3, wr3[sj4]);
+	frwd42_P3(v_P3, wr3[2 * sj4], wr3[2 * sj4 + 1]);
+	write4_P3(x3, v_P3, k0 + 4 * miv, m);
+}
+
 __kernel
 void backward4_P12(const __global uint32_2 * restrict const wri12, __global uint32_2 * restrict const x12, const uint32 s, const uint32 m, const int lm)
 {

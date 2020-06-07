@@ -33,6 +33,7 @@ private:
 	cl_kernel _mul2cond1024_P12 = nullptr, _mul2cond1024_P123 = nullptr, _mul4cond1024_P12 = nullptr, _mul4cond1024_P123 = nullptr;
 	cl_kernel _mul2_P12 = nullptr, _mul2_P123 = nullptr, _mul4_P12 = nullptr, _mul4_P123 = nullptr;
 	cl_kernel _forward2_P12 = nullptr, _forward2_P123 = nullptr, _forward4_P12 = nullptr, _forward4_P123 = nullptr;
+	cl_kernel _forward16_P12 = nullptr, _forward16_P3 = nullptr;
 	cl_kernel _backward2_P12 = nullptr, _backward2_P123 = nullptr, _backward4_P12 = nullptr, _backward4_P123 = nullptr;
 	cl_kernel _normalize2a = nullptr, _normalize2b = nullptr, _normalize3a = nullptr, _normalize3b = nullptr;
 
@@ -226,6 +227,11 @@ public:
 		_setKernelArg(_forward4_P123, 0, sizeof(cl_mem), &_wr12);
 		_setKernelArg(_forward4_P123, 1, sizeof(cl_mem), &_wr3);
 
+		_forward16_P12 = _createKernel("forward16_P12");
+		_setKernelArg(_forward16_P12, 0, sizeof(cl_mem), &_wr12);
+		_forward16_P3 = _createKernel("forward16_P3");
+		_setKernelArg(_forward16_P3, 0, sizeof(cl_mem), &_wr3);
+
 		_backward2_P12 = _createKernel("backward2_P12");
 		_setKernelArg(_backward2_P12, 0, sizeof(cl_mem), &_wri12);
 		_backward2_P123 = _createKernel("backward2_P123");
@@ -269,6 +275,7 @@ public:
 		_releaseKernel(_mul2cond1024_P12); _releaseKernel(_mul2cond1024_P123); _releaseKernel(_mul4cond1024_P12); _releaseKernel(_mul4cond1024_P123);
 		_releaseKernel(_mul2_P12); _releaseKernel(_mul2_P123); _releaseKernel(_mul4_P12); _releaseKernel(_mul4_P123);
 		_releaseKernel(_forward2_P12); _releaseKernel(_forward2_P123); _releaseKernel(_forward4_P12); _releaseKernel(_forward4_P123);
+		_releaseKernel(_forward16_P12); _releaseKernel(_forward16_P3);
 		_releaseKernel(_backward2_P12); _releaseKernel(_backward2_P123); _releaseKernel(_backward4_P12); _releaseKernel(_backward4_P123);
 		_releaseKernel(_normalize2a); _releaseKernel(_normalize2b); _releaseKernel(_normalize3a); _releaseKernel(_normalize3b);
 	}
@@ -474,6 +481,16 @@ private:
 		setP123args(_forward4_P123, x12, x3, s, lm);
 		_executeKernel(_forward4_P123, this->_vnsize / 4);
 	}
+	void forward16_P12(cl_mem x12, const uint32 s, const int32 lm)
+	{
+		setP12args(_forward16_P12, x12, s, lm);
+		_executeKernel(_forward16_P12, this->_vnsize / 4, this->_vsize * 16 / 4);
+	}
+	void forward16_P3(cl_mem x3, const uint32 s, const int32 lm)
+	{
+		setP12args(_forward16_P3, x3, s, lm);
+		_executeKernel(_forward16_P3, this->_vnsize / 4, this->_vsize * 16 / 4);
+	}
 
 private:
 	void backward2_P12(cl_mem x12, const uint32 s, const int32 lm)
@@ -508,6 +525,10 @@ public:
 	void forward4y_P123(const uint32 s, const int32 lm) { forward4_P123(_y12, _y3, s, lm); }
 	void forward4d_P12(const uint32 s, const int32 lm) { forward4_P12(_d12, s, lm); }
 	void forward4d_P123(const uint32 s, const int32 lm) { forward4_P123(_d12, _d3, s, lm); }
+
+public:
+	void forward16x_P12(const uint32 s, const int32 lm) { forward16_P12(_x12, s, lm); }
+	void forward16x_P3(const uint32 s, const int32 lm) { forward16_P3(_x3, s, lm); }
 
 public:
 	void backward4x_P12(const uint32 s, const int32 lm) { backward4_P12(_x12, s, lm); }
