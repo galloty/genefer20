@@ -136,7 +136,7 @@ private:
 	}
 
 private:
-	void check_CPU(const vint32 & b, const uint32_t a, const bool display) const
+	void check_CPU(const vint32 & b, const uint32_t a, const bool display, const bool verif = false) const
 	{
 		const int n = this->_n;
 		const size_t m = size_t(1) << n;
@@ -169,13 +169,24 @@ private:
 
 		if (display) pio::display(std::string("\r") + ssr.str());
 		pio::result(ssr.str());
+
+		if (verif)
+		{
+			std::ostringstream ss; ss << "verif_" << n << ".txt";
+			std::ofstream file(ss.str(), std::ios::app);
+			if (file.is_open())
+			{
+				for (size_t i = 0; i < vsize; ++i) file << res64String(r64[i]) << std::endl;
+				file.close();
+			}
+		}
 	}
 
 private:
-	void check(const vint32 & b, const uint32_t a, const bool display) const
+	void check(const vint32 & b, const uint32_t a, const bool display, const bool verif = false) const
 	{
 		check_GPU(b, a);
-		check_CPU(b, a, display);
+		check_CPU(b, a, display, verif);
 	}
 
 public:
@@ -211,8 +222,12 @@ public:
 		transform * const t = this->_transform;
 		const size_t vsize = t->getVsize();
 		vint32 b;
-		for (size_t i = 0; i < vsize; ++i) b[i] = 300000000 + 2 * uint32(i);
-		check(b, 2, true);
+		uint32 bi = 300000000;
+		for (size_t j = 0; j < 1024 / vsize; ++j)
+		{
+			for (size_t i = 0; i < vsize; ++i) { b[i] = bi; bi += 2; }
+			check(b, 2, true, true);
+		}
 	}
 
 private:

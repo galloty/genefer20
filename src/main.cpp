@@ -87,7 +87,7 @@ private:
 #endif
 
 		std::ostringstream ss;
-		ss << "genefer20 0.1.0 " << sysver << ssc.str() << std::endl;
+		ss << "genefer20 0.2.0 " << sysver << ssc.str() << std::endl;
 		ss << "Copyright (c) 2020, Yves Gallot" << std::endl;
 		ss << "genefer20 is free source code, under the MIT license." << std::endl;
 		if (nl) ss << std::endl;
@@ -162,7 +162,7 @@ public:
 				const std::string nval = ((arg == "-n") && (i + 1 < size)) ? args[++i] : arg.substr(2);
 				n = std::atoi(nval.c_str());
 				if (n < 8) throw std::runtime_error("n < 8 is not supported");
-				if (n > 15) throw std::runtime_error("n > 15 is not supported");
+				if (n > 14) throw std::runtime_error("n > 14 is not supported");
 			}
 			else if (arg.substr(0, 2) == "-f")
 			{
