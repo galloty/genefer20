@@ -102,6 +102,7 @@ private:
 		ss << "  -n <n>                  GFN exponent (b^{2^n} + 1) " << std::endl;
 		ss << "  -f <filename>           input text file (one b per line)" << std::endl;
 		ss << "  -d <n> or --device <n>  set device number=<n> (default 0)" << std::endl;
+		ss << "  -p                      display results on the screen (default false)" << std::endl;
 		ss << "  -v or -V                print the startup banner and immediately exit" << std::endl;
 #ifdef BOINC
 		ss << "  -boinc                  operate as a BOINC client app" << std::endl;
@@ -147,11 +148,12 @@ public:
 		ocl::platform platform;
 		platform.displayDevices();
 
-		if (args.empty()) return;
+		// if (args.empty()) return;
 
 		size_t d = 0;
 		int n = 10;	// test
 		std::string filename;	// = "GFN8.txt";	// test
+		bool display = false;
 		// parse args
 		for (size_t i = 0, size = args.size(); i < size; ++i)
 		{
@@ -174,6 +176,8 @@ public:
 				d = std::atoi(dev.c_str());
 				if (d >= platform.getDeviceCount()) throw std::runtime_error("invalid device number");
 			}
+
+			if (arg == "-p") display = true;
 		}
 
 		genefer & gen = genefer::getInstance();
@@ -187,7 +191,7 @@ public:
 
 		if (!filename.empty())
 		{
-			gen.checkFile(filename);
+			gen.checkFile(filename, display);
 		}
 		else
 		{

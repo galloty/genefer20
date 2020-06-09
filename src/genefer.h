@@ -38,8 +38,9 @@ protected:
 	volatile bool _quit = false;
 private:
 	int _n = 0;
-	transform * _transform = nullptr;
+	engine * _engine = nullptr;
 	bool _isBoinc = false;
+	transform * _transform = nullptr;
 
 private:
 	static std::string res64String(const uint64_t res64, const bool uppercase = true)
@@ -64,39 +65,30 @@ private:
 		return true;
 	}
 
-private:
-	// static void printStatus(transform & t, const bool found, const uint32_t b, const uint32_t n)
-	// {
-	// 	std::ostringstream ss; ss << (found ? "Resuming from a checkpoint " : "Testing ");
-	// 	const uint32_t m = uint32_t(1) << n;
-	// 	ss << b << "^ " << m << " + 1, " << X.getDigits() << " digits, size = 2^" << arith::log2(X.getSize())
-	// 		<< " x " << X.getDigitBit() << " bits, plan: " << X.getPlanString() << std::endl;
-	// 	pio::print(ss.str());
-	// }
-
-private:
-	// static void printProgress(chronometer & chrono, const uint32_t i, const uint32_t n, const uint32_t benchCnt)
-	// {
-	// 	const double elapsedTime = chrono.getBenchTime();
-	// 	const double mulTime = elapsedTime / benchCnt, estimatedTime = mulTime * (n - i);
-	// 	std::ostringstream ss; ss << std::setprecision(3) << " " << i * 100.0 / n << "% done, "
-	// 		<< timer::formatTime(estimatedTime) << " remaining, " <<  mulTime * 1e3 << " ms/mul.        \r";
-	// 	pio::display(ss.str());
-	// 	chrono.resetBenchTime();
-	// }
-
 public:
 	void init(const uint32_t n, engine & eng, const bool isBoinc)
 	{
 		this->_n = n;
-		this->_transform = new transform(size_t(1) << n, eng, isBoinc);
+		this->_engine = &eng;
 		this->_isBoinc = isBoinc;
 	}
 
 public:
 	void release()
 	{
+		deleteTransform();
 		this->_n = 0;
+	}
+
+private:
+	void createTransform(const size_t vsize = 0, const size_t csize = 0, const bool radix16 = true)
+	{
+		this->_transform = new transform(size_t(1) << this->_n, *(this->_engine), this->_isBoinc, vsize, csize, radix16);
+	}
+
+private:
+	void deleteTransform()
+	{
 		if (this->_transform != nullptr)
 		{
 			delete this->_transform;
@@ -192,6 +184,8 @@ private:
 public:
 	void bench()
 	{
+		createTransform();
+
 		const size_t vsize = this->_transform->getVsize();
 		double elapsedTimeGPU = 0, elapsedTimeCPU = 0;
 		uint32 bi = 300000000;
@@ -208,16 +202,17 @@ public:
 			const double elapsedTime = elapsedTimeGPU + elapsedTimeCPU;
 			std::cout << std::setprecision(3) << "GPU: " << 100 * elapsedTimeGPU / elapsedTime << "%, CPU: " << 100 * elapsedTimeCPU / elapsedTime
 				<< "%, " << (j * vsize / elapsedTime) << " GFN-" << this->_n << "/sec" << std::endl;
-			// return;
-			if (_quit) return;
+			if (_quit) break;
 		}
+
+		deleteTransform();
 	}
 
 public:
 	void valid()
 	{
-		transform * const t = this->_transform;
-		const size_t vsize = t->getVsize();
+		createTransform();
+		const size_t vsize = this->_transform->getVsize();
 		vint32 b;
 		uint32 bi = 300000000;
 		for (size_t j = 0; j < 1024 / vsize; ++j)
@@ -225,6 +220,7 @@ public:
 			for (size_t i = 0; i < vsize; ++i) { b[i] = bi; bi += 2; }
 			check(b, 2, true, true);
 		}
+		deleteTransform();
 	}
 
 private:
@@ -274,74 +270,66 @@ private:
 	}
 
 public:
-	bool checkFile(const std::string & filename)
+	bool checkFile(const std::string & filename, const bool display)
 	{
-		const size_t vsize = this->_transform->getVsize();
-		std::vector<vint32> bVec;
-		parseFile(filename, bVec, vsize);
-
-		size_t i0 = 0, n = bVec.size();
-
-		if (_isBoinc) boinc_fraction_done(double(i0) / double(n));
-
-		for (size_t i = i0; i < n; ++i)
+		const std::string ctxFilename = filename + std::string(".ctx");
+		size_t i0 = 0, vsize = 0, csize = 0;
+		bool radix16 = true;
+		std::ifstream ctxFile(ctxFilename);
+		if (ctxFile.is_open())
 		{
-			check(bVec[i], 2, true);
+			ctxFile >> i0;
+			ctxFile >> vsize;
+			ctxFile >> csize;
+			int r; ctxFile >> r; radix16 = (r != 0);
+			ctxFile.close();
 
-			if (_isBoinc)
-			{
-				BOINC_STATUS status;
-				boinc_get_status(&status);
-				bool quit = boincQuitRequest(status);
-				if (quit || (status.suspended != 0))
-				{
-					// checkError(X);
-					// X.saveContext(i, chrono.getElapsedTime(), "p");
-				}
-				if (quit) return false;
-					
-				if (status.suspended != 0)
-				{
-					std::ostringstream ss_s; ss_s << std::endl << "BOINC client is suspended." << std::endl;
-					pio::print(ss_s.str());
-
-					while (status.suspended != 0)
-					{
-						std::this_thread::sleep_for(std::chrono::seconds(1));
-						boinc_get_status(&status);
-						if (boincQuitRequest(status)) return false;
-					}
-
-					std::ostringstream ss_r; ss_r << "BOINC client is resumed." << std::endl;
-					pio::print(ss_r.str());
-				}
-
-				if (boinc_time_to_checkpoint() != 0)
-				{
-					// checkError(X);
-					// X.saveContext(i, chrono.getElapsedTime(), "p");
-					boinc_checkpoint_completed();
-				}
-			}
-			else
-			{
-				// const double elapsedTime = chrono.getRecordTime();
-				// if (elapsedTime > 600)
-				// {
-				// 	checkError(X);
-				// 	X.saveContext(i, chrono.getElapsedTime(), "p");
-				// 	chrono.resetRecordTime();
-				// }
-			}
-
-			if (_quit)
-			{
-				// X.saveContext(i, chrono.getElapsedTime());
-				return false;
-			}
+			std::cout << "Resuming from a checkpoint." << std::endl;
 		}
 
-		if (_isBoinc) boinc_fraction_done(1.0);
-		return true;
+		createTransform(vsize, csize, radix16);
+		vsize = _transform->getVsize(); csize = _transform->getCsize(); radix16 = _transform->getRadix16();
+
+		std::vector<vint32> bVec;
+		parseFile(filename, bVec, vsize);
+		const size_t n = bVec.size();
+
+		if (_isBoinc) boinc_fraction_done(double(i0) / double(n));
+		if (!display)
+		{
+			std::ostringstream ss; ss << std::setprecision(3) << " " << (i0 * 100.0 / n) << "% done    \r";
+			std::cout << ss.str();
+		}
+
+		size_t i;
+		for (i = i0; i < n; ++i)
+		{
+			check(bVec[i], 2, display);
+
+			std::ofstream ctxFile(ctxFilename);
+			if (ctxFile.is_open())
+			{
+				ctxFile << i + 1 << " " << vsize << " " << csize << " " << (radix16 ? "1" : "0") << std::endl;
+				ctxFile.close();
+			}
+
+			if (_isBoinc) boinc_fraction_done(double(i + 1) / double(n));
+			if (!display)
+			{
+				std::ostringstream ss; ss << std::setprecision(3) << " " << ((i + 1) * 100.0 / n) << "% done    \r";
+				std::cout << ss.str();
+			}
+
+			if (_quit) break;
+		}
+
+		if (!display) std::cout << std::endl;
+
+		if (i == n)
+		{
+			if (_isBoinc) boinc_fraction_done(1.0);
+			return true;
+		}
+		return false;
 	}
 };

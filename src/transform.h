@@ -430,68 +430,79 @@ private:
 	}
 
 public:
-	transform(const size_t size, engine & engine, const bool isBoinc) :
+	transform(const size_t size, engine & engine, const bool isBoinc, const size_t vsize, const size_t csize, const bool radix16) :
 		_n(size), _isBoinc(isBoinc), _engine(engine),
 		_x(new uint32[VSIZE_MAX * size]), _gx(new uint32_2[VSIZE_MAX * size]), _gd(new uint32_2[VSIZE_MAX * size])
 	{
-		std::cout << " auto-tuning...\r";
-		double bestTime = 1e100;
-		bool bestRadix16 = true;
-		size_t bestCsize = CSIZE_MIN, bestVsize = CSIZE_MIN;
-
-		vint32 b; for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 300000000 + 210 * i;
-
-		engine.setProfiling(true);
-		for (size_t r = 0; r < 2; ++r)
+		if (vsize == 0)
 		{
-			const bool radix16 = (r != 0);
-			this->_radix16 = radix16;
-			for (size_t csize = CSIZE_MIN; csize <= 64; csize *= 2)
+			std::cout << " auto-tuning...\r";
+			double bestTime = 1e100;
+			bool bestRadix16 = true;
+			size_t bestCsize = CSIZE_MIN, bestVsize = CSIZE_MIN;
+
+			vint32 b; for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 300000000 + 210 * i;
+
+			engine.setProfiling(true);
+			for (size_t r = 0; r < 2; ++r)
 			{
-				this->_csize = csize;
-				for (size_t vsize = csize; vsize <= VSIZE_MAX; vsize *= 2)
+				const bool radix16 = (r != 0);
+				this->_radix16 = radix16;
+				for (size_t csize = CSIZE_MIN; csize <= 64; csize *= 2)
 				{
-					this->_vsize = vsize;
-
-					initEngine();
-					init(b, 2);
-					engine.resetProfiles();
-					const size_t m = 16;
-					for (size_t i = 1; i < m; ++i)
+					this->_csize = csize;
+					for (size_t vsize = csize; vsize <= VSIZE_MAX; vsize *= 2)
 					{
-						powMod();
-						if ((i & (m / 2 - 1)) == 0) gerbiczStep();
-					}
-					const double time = engine.getProfileTime() / double(vsize);
-					powMod(); copyRes(); gerbiczLastStep();
-					for (size_t j = 0; j < m / 2; ++j) powMod();
-					saveRes();
-					if (!gerbiczCheck(2)) throw std::runtime_error("Gerbicz failed");
-					releaseEngine();
+						this->_vsize = vsize;
 
-					std::cout << "radix-" << (radix16 ? 16 : 4) << ", csize = " << csize << ", vsize = " << vsize
-							  << ", " << int64_t(time * size * 1e-6 / m) << " ms/b         ";
+						initEngine();
+						init(b, 2);
+						engine.resetProfiles();
+						const size_t m = 16;
+						for (size_t i = 1; i < m; ++i)
+						{
+							powMod();
+							if ((i & (m / 2 - 1)) == 0) gerbiczStep();
+						}
+						const double time = engine.getProfileTime() / double(vsize);
+						powMod(); copyRes(); gerbiczLastStep();
+						for (size_t j = 0; j < m / 2; ++j) powMod();
+						saveRes();
+						if (!gerbiczCheck(2)) throw std::runtime_error("Gerbicz failed");
+						releaseEngine();
 
-					if (time < bestTime)
-					{
-						bestTime = time;
-						bestRadix16 = radix16;
-						bestCsize = csize;
-						bestVsize = vsize;
-						std::cout << std::endl;
-					}
-					else
-					{
-						std::cout << "\r";
+						std::cout << "radix-" << (radix16 ? 16 : 4) << ", csize = " << csize << ", vsize = " << vsize
+								<< ", " << int64_t(time * size * 1e-6 / m) << " ms/b         ";
+
+						if (time < bestTime)
+						{
+							bestTime = time;
+							bestRadix16 = radix16;
+							bestCsize = csize;
+							bestVsize = vsize;
+							std::cout << std::endl;
+						}
+						else
+						{
+							std::cout << "\r";
+						}
 					}
 				}
 			}
-		}
-		std::cout << "Radix = " << (bestRadix16 ? 16 : 4) << ", vector size = " << bestVsize << ", chunk size = " << bestCsize << "         " << std::endl << std::endl;
 
-		this->_vsize = bestVsize;
-		this->_csize = bestCsize;
-		this->_radix16 = bestRadix16;
+			this->_vsize = bestVsize;
+			this->_csize = bestCsize;
+			this->_radix16 = bestRadix16;
+		}
+		else
+		{
+			this->_vsize = vsize;
+			this->_csize = csize;
+			this->_radix16 = radix16;
+		}
+
+		std::cout << "Radix = " << (this->_radix16 ? 16 : 4) << ", vector size = " << this->_vsize << ", chunk size = " << this->_csize << "         " << std::endl << std::endl;
+
 		engine.setProfiling(false);
 		initEngine();
 	}
@@ -508,6 +519,8 @@ public:
 
 public:
 	size_t getVsize() const { return this->_vsize; }
+	size_t getCsize() const { return this->_csize; }
+	bool getRadix16() const { return this->_radix16; }
 
 public:
 	void copyRes() { _engine.setxres_P1(); }
