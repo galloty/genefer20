@@ -22,7 +22,7 @@ static const char * const src_ocl_kernel = \
 "typedef ulong	uint64;\n" \
 "typedef long 	int64;\n" \
 "typedef uint2	uint32_2;\n" \
-"typedef ulong16	uint64_16;\n" \
+"typedef ulong4	uint64_4;\n" \
 "\n" \
 "typedef struct { uint64 s0; uint32 s1; } uint96;\n" \
 "typedef struct { uint64 s0; int32  s1; } int96;\n" \
@@ -169,21 +169,12 @@ static const char * const src_ocl_kernel = \
 "	0x0100000000000000ul, 0x0200000000000000ul, 0x0400000000000000ul, 0x0800000000000000ul, 0x1000000000000000ul, 0x2000000000000000ul, 0x4000000000000000ul, 0x8000000000000000ul\n" \
 "	};\n" \
 "\n" \
-"inline uint64 getcval(const uint64_16 c, const size_t l_64)\n" \
+"inline uint64 getcval(const uint64_4 c, const size_t l_64)\n" \
 "{\n" \
-"	const uint64 c0_mask = (l_64 == 0x00) ? 0xfffffffffffffffful : 0, c1_mask = (l_64 == 0x01) ? 0xfffffffffffffffful : 0;\n" \
-"	const uint64 c2_mask = (l_64 == 0x02) ? 0xfffffffffffffffful : 0, c3_mask = (l_64 == 0x03) ? 0xfffffffffffffffful : 0;\n" \
-"	const uint64 c4_mask = (l_64 == 0x04) ? 0xfffffffffffffffful : 0, c5_mask = (l_64 == 0x05) ? 0xfffffffffffffffful : 0;\n" \
-"	const uint64 c6_mask = (l_64 == 0x06) ? 0xfffffffffffffffful : 0, c7_mask = (l_64 == 0x07) ? 0xfffffffffffffffful : 0;\n" \
-"	const uint64 c8_mask = (l_64 == 0x08) ? 0xfffffffffffffffful : 0, c9_mask = (l_64 == 0x09) ? 0xfffffffffffffffful : 0;\n" \
-"	const uint64 ca_mask = (l_64 == 0x0a) ? 0xfffffffffffffffful : 0, cb_mask = (l_64 == 0x0b) ? 0xfffffffffffffffful : 0;\n" \
-"	const uint64 cc_mask = (l_64 == 0x0c) ? 0xfffffffffffffffful : 0, cd_mask = (l_64 == 0x0d) ? 0xfffffffffffffffful : 0;\n" \
-"	const uint64 ce_mask = (l_64 == 0x0e) ? 0xfffffffffffffffful : 0, cf_mask = (l_64 == 0x0f) ? 0xfffffffffffffffful : 0;\n" \
+"	const uint64 c0_mask = (l_64 == 0) ? 0xfffffffffffffffful : 0, c1_mask = (l_64 == 1) ? 0xfffffffffffffffful : 0;\n" \
+"	const uint64 c2_mask = (l_64 == 2) ? 0xfffffffffffffffful : 0, c3_mask = (l_64 == 3) ? 0xfffffffffffffffful : 0;\n" \
 "\n" \
-"	return (c.s0 & c0_mask) | (c.s1 & c1_mask) | (c.s2 & c2_mask) | (c.s3 & c3_mask)\n" \
-"		 | (c.s4 & c4_mask) | (c.s5 & c5_mask) | (c.s6 & c6_mask) | (c.s7 & c7_mask)\n" \
-"		 | (c.s8 & c8_mask) | (c.s9 & c9_mask) | (c.sa & ca_mask) | (c.sb & cb_mask)\n" \
-"		 | (c.sc & cc_mask) | (c.sd & cd_mask) | (c.se & ce_mask) | (c.sf & cf_mask);\n" \
+"	return (c.s0 & c0_mask) | (c.s1 & c1_mask) | (c.s2 & c2_mask) | (c.s3 & c3_mask);\n" \
 "}\n" \
 "\n" \
 "__kernel\n" \
@@ -435,8 +426,8 @@ static const char * const src_ocl_kernel = \
 "}\n" \
 "\n" \
 "__kernel\n" \
-"void mul2cond1024_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,\n" \
-"	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12, const uint64_16 c)\n" \
+"void mul2cond256_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,\n" \
+"	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12, const uint64_4 c)\n" \
 "{\n" \
 "	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;\n" \
 "\n" \
@@ -457,10 +448,10 @@ static const char * const src_ocl_kernel = \
 "}\n" \
 "\n" \
 "__kernel\n" \
-"void mul2cond1024_P123(const __global uint32_2 * restrict const wr12, const __global uint32 * restrict const wr3,\n" \
+"void mul2cond256_P123(const __global uint32_2 * restrict const wr12, const __global uint32 * restrict const wr3,\n" \
 "	const __global uint32_2 * restrict const wri12, const __global uint32 * restrict const wri3,\n" \
 "	const __global uint32_2 * restrict const y12, __global uint32 * restrict const y3,\n" \
-"	__global uint32_2 * restrict const x12,  __global uint32 * restrict const x3, const uint64_16 c)\n" \
+"	__global uint32_2 * restrict const x12,  __global uint32 * restrict const x3, const uint64_4 c)\n" \
 "{\n" \
 "	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;\n" \
 "\n" \
@@ -1061,8 +1052,8 @@ static const char * const src_ocl_kernel = \
 "}\n" \
 "\n" \
 "__kernel\n" \
-"void mul4cond1024_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,\n" \
-"	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12, const uint64_16 c)\n" \
+"void mul4cond256_P12(const __global uint32_2 * restrict const wr12, const __global uint32_2 * restrict const wri12,\n" \
+"	const __global uint32_2 * restrict const y12, __global uint32_2 * restrict const x12, const uint64_4 c)\n" \
 "{\n" \
 "	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;\n" \
 "\n" \
@@ -1085,10 +1076,10 @@ static const char * const src_ocl_kernel = \
 "}\n" \
 "\n" \
 "__kernel\n" \
-"void mul4cond1024_P123(const __global uint32_2 * restrict const wr12, const __global uint32 * restrict const wr3,\n" \
+"void mul4cond256_P123(const __global uint32_2 * restrict const wr12, const __global uint32 * restrict const wr3,\n" \
 "	const __global uint32_2 * restrict const wri12, const __global uint32 * restrict const wri3,\n" \
 "	const __global uint32_2 * restrict const y12, const __global uint32 * restrict const y3,\n" \
-"	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3, const uint64_16 c)\n" \
+"	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3, const uint64_4 c)\n" \
 "{\n" \
 "	const size_t id = get_global_id(0), vid = id / VSIZE, l = id % VSIZE;\n" \
 "\n" \
