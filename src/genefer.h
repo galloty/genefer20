@@ -205,13 +205,10 @@ public:
 			elapsedTimeGPU += timer::diffTime(t1, t0);
 			check_CPU(b, 2, false);
 			elapsedTimeCPU += timer::diffTime(timer::currentTime(), t1);
-			if (j % 1 == 0)
-			{
-				const double elapsedTime = elapsedTimeGPU + elapsedTimeCPU;
-				std::cout << std::setprecision(3) << "GPU: " << 100 * elapsedTimeGPU / elapsedTime << "%, CPU: " << 100 * elapsedTimeCPU / elapsedTime
-					<< "%, " << (j * vsize / elapsedTime) << " GFN-" << this->_n << "/sec" << std::endl;
-				// return;
-			}
+			const double elapsedTime = elapsedTimeGPU + elapsedTimeCPU;
+			std::cout << std::setprecision(3) << "GPU: " << 100 * elapsedTimeGPU / elapsedTime << "%, CPU: " << 100 * elapsedTimeCPU / elapsedTime
+				<< "%, " << (j * vsize / elapsedTime) << " GFN-" << this->_n << "/sec" << std::endl;
+			// return;
 			if (_quit) return;
 		}
 	}

@@ -96,10 +96,11 @@ private:
 	uint32_2 * const _gx;
 	uint32_2 * const _gd;
 	size_t _vsize = 0;
+	bool _radix16 = true;
 	bool _3primes = true;
 	int _b_s = 0;
 	uint32 _b[VSIZE_MAX];
-	uint64_16 _c[32];
+	uint64_4 _c[32];
 
 private:
 	static size_t bitRev(const size_t i, const size_t n)
@@ -239,7 +240,7 @@ private:
 	}
 
 private:
-	void mulMod1024(const uint64_16 & c) const
+	void mulMod256(const uint64_4 & c) const
 	{
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
@@ -249,8 +250,7 @@ private:
 			size_t s = 1, lm = ln;
 			for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16x_P12(s, lm - 4); _engine.forward16x_P3(s, lm - 4); }
 			if (lm > 2) _engine.forward4x_P123(s, lm - 2);
-			if (lm % 2 != 0) _engine.mul2cond1024xy_P123(c);
-			else _engine.mul4cond1024xy_P123(c);
+			if (lm % 2 != 0) _engine.mul2cond256xy_P123(c); else _engine.mul4cond256xy_P123(c);
 			if (lm > 2) _engine.backward4x_P123(s, lm - 2);
 			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16x_P12(s, lm - 4); _engine.backward16x_P3(s, lm - 4); }
 			_engine.normalize3ax();
@@ -261,10 +261,87 @@ private:
 			size_t s = 1, lm = ln;
 			for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x_P12(s, lm - 4);
 			if (lm > 2) _engine.forward4x_P12(s, lm - 2);
-			if (lm % 2 != 0) _engine.mul2cond1024xy_P12(c);
-			else _engine.mul4cond1024xy_P12(c);
+			if (lm % 2 != 0) _engine.mul2cond256xy_P12(c); else _engine.mul4cond256xy_P12(c);
 			if (lm > 2) _engine.backward4x_P12(s, lm - 2);
 			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x_P12(s, lm - 4);
+			_engine.normalize2ax();
+			_engine.normalize2bx();
+		}
+	}
+
+private:
+	void squareMod_4() const
+	{
+		const size_t n = this->_n;
+		const int ln = ilog2(uint32_t(n));
+
+		if (this->_3primes)
+		{
+			size_t s = 1, lm = ln;
+			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P123(s, lm - 2);
+			if (lm % 2 != 0) _engine.square2x_P123(); else _engine.square4x_P123();
+			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P123(s, lm - 2);
+			_engine.normalize3ax();
+			_engine.normalize3bx();
+		}
+		else
+		{
+			size_t s = 1, lm = ln;
+			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P12(s, lm - 2);
+			if (lm % 2 != 0) _engine.square2x_P12(); else _engine.square4x_P12();
+			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P12(s, lm - 2);
+			_engine.normalize2ax();
+			_engine.normalize2bx();
+		}
+	}
+
+private:
+	void mulMod64_4(const uint64 & c) const
+	{
+		const size_t n = this->_n;
+		const int ln = ilog2(uint32_t(n));
+
+		if (this->_3primes)
+		{
+			size_t s = 1, lm = ln;
+			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P123(s, lm - 2);
+			if (lm % 2 != 0) _engine.mul2cond64xy_P123(c); else _engine.mul4cond64xy_P123(c);
+			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P123(s, lm - 2);
+			_engine.normalize3ax();
+			_engine.normalize3bx();
+		}
+		else
+		{
+			size_t s = 1, lm = ln;
+			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P12(s, lm - 2);
+			if (lm % 2 != 0) _engine.mul2cond64xy_P12(c); else _engine.mul4cond64xy_P12(c);
+			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P12(s, lm - 2);
+			_engine.normalize2ax();
+			_engine.normalize2bx();
+		}
+	}
+
+private:
+	void mulMod256_4(const uint64_4 & c) const
+	{
+		const size_t n = this->_n;
+		const int ln = ilog2(uint32_t(n));
+
+		if (this->_3primes)
+		{
+			size_t s = 1, lm = ln;
+			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P123(s, lm - 2);
+			if (lm % 2 != 0) _engine.mul2cond256xy_P123(c); else _engine.mul4cond256xy_P123(c);
+			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P123(s, lm - 2);
+			_engine.normalize3ax();
+			_engine.normalize3bx();
+		}
+		else
+		{
+			size_t s = 1, lm = ln;
+			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P12(s, lm - 2);
+			if (lm % 2 != 0) _engine.mul2cond256xy_P12(c); else _engine.mul4cond256xy_P12(c);
+			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P12(s, lm - 2);
 			_engine.normalize2ax();
 			_engine.normalize2bx();
 		}
@@ -359,39 +436,47 @@ public:
 		// std::cout << " auto-tuning...\r";
 		double bestTime = 1e100;
 		size_t bestVsize = CSIZE;
+		bool bestRadix16 = true;
 		vint32 b;
-		for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 100000000 + 210 * i;
+		for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 300000000 + 210 * i;
 
 		engine.setProfiling(true);
-		for (size_t vsize = CSIZE; vsize <= VSIZE_MAX; vsize *= 2)
+		for (size_t r = 0; r < 2; ++r)
 		{
-			this->_vsize = vsize;
-
-			initEngine();
-			init(b, 2);
-			engine.resetProfiles();
-			for (size_t i = 1; i < 16; ++i)
+			const bool radix16 = (r != 0);
+			for (size_t vsize = CSIZE; vsize <= VSIZE_MAX; vsize *= 2)
 			{
-				powMod();
-				if ((i & (8 - 1)) == 0) gerbiczStep();
-			}
-			const double time = engine.getProfileTime() / double(vsize);
-			powMod(); copyRes(); gerbiczLastStep();
-			for (size_t j = 0; j < 8; ++j) powMod();
-			saveRes();
-			if (!gerbiczCheck(2)) throw std::runtime_error("Gerbicz failed");
-			releaseEngine();
+				this->_vsize = vsize;
+				this->_radix16 = radix16;
 
-			if (time < bestTime)
-			{
-				bestTime = time;
-				bestVsize = vsize;
+				initEngine();
+				init(b, 2);
+				engine.resetProfiles();
+				for (size_t i = 1; i < 16; ++i)
+				{
+					powMod();
+					if ((i & (8 - 1)) == 0) gerbiczStep();
+				}
+				const double time = engine.getProfileTime() / double(vsize);
+				powMod(); copyRes(); gerbiczLastStep();
+				for (size_t j = 0; j < 8; ++j) powMod();
+				saveRes();
+				if (!gerbiczCheck(2)) throw std::runtime_error("Gerbicz failed");
+				releaseEngine();
+
+				if (time < bestTime)
+				{
+					bestTime = time;
+					bestVsize = vsize;
+					bestRadix16 = radix16;
+				}
+				std::cout << "radix-" << (radix16 ? 16 : 4) << ", vsize = " << vsize << ", " << int64_t(time * size * 1e-6 / 16) << " ms/b" << std::endl;
 			}
-			std::cout << vsize << ", " << int64_t(time * size * 1e-6 / 16) << " ms/b" << std::endl;
 		}
-		std::cout << "Vector size = " << bestVsize << std::endl << std::endl;
+		std::cout << "Radix = " << (bestRadix16 ? 16 : 4) << ", vector size = " << bestVsize << std::endl << std::endl;
 
 		this->_vsize = bestVsize;
+		this->_radix16 = bestRadix16;
 		engine.setProfiling(false);
 		initEngine();
 	}
@@ -440,11 +525,10 @@ public:
 			bb_inv[i].s[1] = uint32((uint64(1) << (s + 32)) / b[i]);
 		}
 
-		uint64_16 * const c = this->_c;
+		uint64_4 * const c = this->_c;
 		for (int j = s; j >= 0; --j)
 		{
-			uint64_16 cj; cj.s[0] = cj.s[1] = cj.s[2]= cj.s[3] = cj.s[4] = cj.s[5] = cj.s[6]= cj.s[7] = 0;
-			cj.s[8] = cj.s[9] = cj.s[10] = cj.s[11] = cj.s[12] = cj.s[13] = cj.s[14] = cj.s[15] = 0;
+			uint64_4 cj; cj.s[0] = cj.s[1] = cj.s[2] = cj.s[3] = 0;
 			for (size_t i = 0; i < vsize; ++i)
 			{
 				const uint64 ci = ((b[i] & (uint32(1) << j)) != 0) ? 1 : 0;
@@ -465,25 +549,49 @@ public:
 	{
 		initMultiplicand();
 
-		const uint64_16 * const c = this->_c;
+		const bool radix16 = this->_radix16;
+		const uint64_4 * const c = this->_c;
 
-		if (this->_vsize <= 64)
+		if (radix16)
 		{
-			for (int j = this->_b_s; j >= 0; --j)
+			if (this->_vsize <= 64)
 			{
-				squareMod();
-				const uint64 cj = c[j].s[0];
-				if (cj != 0) mulMod64(cj);
+				for (int j = this->_b_s; j >= 0; --j)
+				{
+					squareMod();
+					const uint64 cj = c[j].s[0];
+					if (cj != 0) mulMod64(cj);
+				}
+			}
+			else
+			{
+				for (int j = this->_b_s; j >= 0; --j)
+				{
+					squareMod();
+					const uint64 cj = c[j].s[0] | c[j].s[1] | c[j].s[2] | c[j].s[3];
+					if (cj != 0) mulMod256(c[j]);
+				}
 			}
 		}
 		else
 		{
-			for (int j = this->_b_s; j >= 0; --j)
+			if (this->_vsize <= 64)
 			{
-				squareMod();
-				const uint64 cj = c[j].s[0] | c[j].s[1] | c[j].s[2] | c[j].s[3] | c[j].s[4] | c[j].s[5] | c[j].s[6] | c[j].s[7]
-								| c[j].s[8] | c[j].s[9] | c[j].s[10] | c[j].s[11] | c[j].s[12] | c[j].s[13] | c[j].s[14] | c[j].s[15];
-				if (cj != 0) mulMod1024(c[j]);
+				for (int j = this->_b_s; j >= 0; --j)
+				{
+					squareMod_4();
+					const uint64 cj = c[j].s[0];
+					if (cj != 0) mulMod64_4(cj);
+				}
+			}
+			else
+			{
+				for (int j = this->_b_s; j >= 0; --j)
+				{
+					squareMod_4();
+					const uint64 cj = c[j].s[0] | c[j].s[1] | c[j].s[2] | c[j].s[3];
+					if (cj != 0) mulMod256_4(c[j]);
+				}
 			}
 		}
 	}

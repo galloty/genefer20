@@ -14,9 +14,9 @@ typedef cl_int		int32;
 typedef cl_ulong	uint64;
 typedef cl_long		int64;
 typedef cl_uint2	uint32_2;
-typedef cl_ulong16	uint64_16;
+typedef cl_ulong4	uint64_4;
 
-#define VSIZE_MAX	256		//(64 * 16)
+#define VSIZE_MAX	256
 #define	CSIZE		8
 
 class engine : public ocl::device
@@ -30,7 +30,7 @@ private:
 	cl_kernel _square2_P12 = nullptr, _square2_P123 = nullptr, _square4_P12 = nullptr, _square4_P123 = nullptr;
 	cl_kernel _square8_P12 = nullptr, _square8_P3 = nullptr, _square16_P12 = nullptr, _square16_P3 = nullptr;
 	cl_kernel _mul2cond64_P12 = nullptr, _mul2cond64_P123 = nullptr, _mul4cond64_P12 = nullptr, _mul4cond64_P123 = nullptr;
-	cl_kernel _mul2cond1024_P12 = nullptr, _mul2cond1024_P123 = nullptr, _mul4cond1024_P12 = nullptr, _mul4cond1024_P123 = nullptr;
+	cl_kernel _mul2cond256_P12 = nullptr, _mul2cond256_P123 = nullptr, _mul4cond256_P12 = nullptr, _mul4cond256_P123 = nullptr;
 	cl_kernel _mul2_P12 = nullptr, _mul2_P123 = nullptr, _mul4_P12 = nullptr, _mul4_P123 = nullptr;
 	cl_kernel _forward2_P12 = nullptr, _forward2_P123 = nullptr, _forward4_P12 = nullptr, _forward4_P123 = nullptr;
 	cl_kernel _forward16_P12 = nullptr, _forward16_P3 = nullptr, _backward16_P12 = nullptr, _backward16_P3 = nullptr;
@@ -206,10 +206,10 @@ public:
 		createKernel_mulcond_P123(_mul2cond64_P123, "mul2cond64_P123");
 		createKernel_mulcond_P12(_mul4cond64_P12, "mul4cond64_P12");
 		createKernel_mulcond_P123(_mul4cond64_P123, "mul4cond64_P123");
-		createKernel_mulcond_P12(_mul2cond1024_P12, "mul2cond1024_P12");
-		createKernel_mulcond_P123(_mul2cond1024_P123, "mul2cond1024_P123");
-		createKernel_mulcond_P12(_mul4cond1024_P12, "mul4cond1024_P12");
-		createKernel_mulcond_P123(_mul4cond1024_P123, "mul4cond1024_P123");
+		createKernel_mulcond_P12(_mul2cond256_P12, "mul2cond256_P12");
+		createKernel_mulcond_P123(_mul2cond256_P123, "mul2cond256_P123");
+		createKernel_mulcond_P12(_mul4cond256_P12, "mul4cond256_P12");
+		createKernel_mulcond_P123(_mul4cond256_P123, "mul4cond256_P123");
 
 		createKernel_mul_P12(_mul2_P12, "mul2_P12");
 		createKernel_mul_P123(_mul2_P123, "mul2_P123");
@@ -275,7 +275,7 @@ public:
 		_releaseKernel(_square2_P12); _releaseKernel(_square2_P123); _releaseKernel(_square4_P12); _releaseKernel(_square4_P123);
 		_releaseKernel(_square8_P12); _releaseKernel(_square8_P3); _releaseKernel(_square16_P12); _releaseKernel(_square16_P3);
 		_releaseKernel(_mul2cond64_P12); _releaseKernel(_mul2cond64_P123); _releaseKernel(_mul4cond64_P12); _releaseKernel(_mul4cond64_P123);
-		_releaseKernel(_mul2cond1024_P12); _releaseKernel(_mul2cond1024_P123); _releaseKernel(_mul4cond1024_P12); _releaseKernel(_mul4cond1024_P123);
+		_releaseKernel(_mul2cond256_P12); _releaseKernel(_mul2cond256_P123); _releaseKernel(_mul4cond256_P12); _releaseKernel(_mul4cond256_P123);
 		_releaseKernel(_mul2_P12); _releaseKernel(_mul2_P123); _releaseKernel(_mul4_P12); _releaseKernel(_mul4_P123);
 		_releaseKernel(_forward2_P12); _releaseKernel(_forward2_P123); _releaseKernel(_forward4_P12); _releaseKernel(_forward4_P123);
 		_releaseKernel(_forward16_P12); _releaseKernel(_forward16_P3); _releaseKernel(_backward16_P12); _releaseKernel(_backward16_P3);
@@ -375,25 +375,25 @@ public:
 	}
 
 public:
-	void mul2cond1024xy_P12(const uint64_16 & c)
+	void mul2cond256xy_P12(const uint64_4 & c)
 	{
-		_setKernelArg(_mul2cond1024_P12, 4, sizeof(uint64_16), &c);
-		_executeKernel(_mul2cond1024_P12, this->_vnsize / 2);
+		_setKernelArg(_mul2cond256_P12, 4, sizeof(uint64_4), &c);
+		_executeKernel(_mul2cond256_P12, this->_vnsize / 2);
 	}
-	void mul2cond1024xy_P123(const uint64_16 & c)
+	void mul2cond256xy_P123(const uint64_4 & c)
 	{
-		_setKernelArg(_mul2cond1024_P123, 8, sizeof(uint64_16), &c);
-		_executeKernel(_mul2cond1024_P123, this->_vnsize / 2);
+		_setKernelArg(_mul2cond256_P123, 8, sizeof(uint64_4), &c);
+		_executeKernel(_mul2cond256_P123, this->_vnsize / 2);
 	}
-	void mul4cond1024xy_P12(const uint64_16 & c)
+	void mul4cond256xy_P12(const uint64_4 & c)
 	{
-		_setKernelArg(_mul4cond1024_P12, 4, sizeof(uint64_16), &c);
-		_executeKernel(_mul4cond1024_P12, this->_vnsize / 4);
+		_setKernelArg(_mul4cond256_P12, 4, sizeof(uint64_4), &c);
+		_executeKernel(_mul4cond256_P12, this->_vnsize / 4);
 	}
-	void mul4cond1024xy_P123(const uint64_16 & c)
+	void mul4cond256xy_P123(const uint64_4 & c)
 	{
-		_setKernelArg(_mul4cond1024_P123, 8, sizeof(uint64_16), &c);
-		_executeKernel(_mul4cond1024_P123, this->_vnsize / 4);
+		_setKernelArg(_mul4cond256_P123, 8, sizeof(uint64_4), &c);
+		_executeKernel(_mul4cond256_P123, this->_vnsize / 4);
 	}
 
 public:
