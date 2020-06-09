@@ -96,6 +96,7 @@ private:
 	uint32_2 * const _gx;
 	uint32_2 * const _gd;
 	size_t _vsize = 0;
+	size_t _csize = 0;
 	bool _radix16 = true;
 	bool _3primes = true;
 	int _b_s = 0;
@@ -394,11 +395,11 @@ private:
 	void initEngine() const
 	{
 		const size_t n = this->_n;
-		const size_t vsize = this->_vsize;
+		const size_t vsize = this->_vsize, csize = this->_csize;
 
 		std::stringstream src;
 		src << "#define\tVSIZE\t" << vsize << std::endl;
-		src << "#define\tCSIZE\t" << CSIZE << std::endl << std::endl;
+		src << "#define\tCSIZE\t" << csize << std::endl << std::endl;
 		src << "#define\tnorm1\t" << Zp1::norm(n).get() << "u" << std::endl;
 		src << "#define\tnorm2\t" << Zp2::norm(n).get() << "u" << std::endl;
 		src << "#define\tnorm3\t" << Zp3::norm(n).get() << "u" << std::endl;
@@ -408,7 +409,7 @@ private:
 		if (!readOpenCL("ocl/kernel.cl", "src/ocl/kernel.h", "src_ocl_kernel", src)) src << src_ocl_kernel;
 
 		_engine.loadProgram(src.str());
-		_engine.allocMemory(n, vsize);
+		_engine.allocMemory(n, vsize, csize);
 		_engine.createKernels();
 
 		std::vector<uint32> wr1(n), wr2(n), wr3(n), wri1(n), wri2(n), wri3(n);
@@ -433,49 +434,63 @@ public:
 		_n(size), _isBoinc(isBoinc), _engine(engine),
 		_x(new uint32[VSIZE_MAX * size]), _gx(new uint32_2[VSIZE_MAX * size]), _gd(new uint32_2[VSIZE_MAX * size])
 	{
-		// std::cout << " auto-tuning...\r";
+		std::cout << " auto-tuning...\r";
 		double bestTime = 1e100;
-		size_t bestVsize = CSIZE;
 		bool bestRadix16 = true;
-		vint32 b;
-		for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 300000000 + 210 * i;
+		size_t bestCsize = CSIZE_MIN, bestVsize = CSIZE_MIN;
+
+		vint32 b; for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 300000000 + 210 * i;
 
 		engine.setProfiling(true);
 		for (size_t r = 0; r < 2; ++r)
 		{
 			const bool radix16 = (r != 0);
-			for (size_t vsize = CSIZE; vsize <= VSIZE_MAX; vsize *= 2)
+			this->_radix16 = radix16;
+			for (size_t csize = CSIZE_MIN; csize <= 64; csize *= 2)
 			{
-				this->_vsize = vsize;
-				this->_radix16 = radix16;
-
-				initEngine();
-				init(b, 2);
-				engine.resetProfiles();
-				for (size_t i = 1; i < 16; ++i)
+				this->_csize = csize;
+				for (size_t vsize = csize; vsize <= VSIZE_MAX; vsize *= 2)
 				{
-					powMod();
-					if ((i & (8 - 1)) == 0) gerbiczStep();
-				}
-				const double time = engine.getProfileTime() / double(vsize);
-				powMod(); copyRes(); gerbiczLastStep();
-				for (size_t j = 0; j < 8; ++j) powMod();
-				saveRes();
-				if (!gerbiczCheck(2)) throw std::runtime_error("Gerbicz failed");
-				releaseEngine();
+					this->_vsize = vsize;
 
-				if (time < bestTime)
-				{
-					bestTime = time;
-					bestVsize = vsize;
-					bestRadix16 = radix16;
+					initEngine();
+					init(b, 2);
+					engine.resetProfiles();
+					const size_t m = 16;
+					for (size_t i = 1; i < m; ++i)
+					{
+						powMod();
+						if ((i & (m / 2 - 1)) == 0) gerbiczStep();
+					}
+					const double time = engine.getProfileTime() / double(vsize);
+					powMod(); copyRes(); gerbiczLastStep();
+					for (size_t j = 0; j < m / 2; ++j) powMod();
+					saveRes();
+					if (!gerbiczCheck(2)) throw std::runtime_error("Gerbicz failed");
+					releaseEngine();
+
+					std::cout << "radix-" << (radix16 ? 16 : 4) << ", csize = " << csize << ", vsize = " << vsize
+							  << ", " << int64_t(time * size * 1e-6 / m) << " ms/b         ";
+
+					if (time < bestTime)
+					{
+						bestTime = time;
+						bestRadix16 = radix16;
+						bestCsize = csize;
+						bestVsize = vsize;
+						std::cout << std::endl;
+					}
+					else
+					{
+						std::cout << "\r";
+					}
 				}
-				std::cout << "radix-" << (radix16 ? 16 : 4) << ", vsize = " << vsize << ", " << int64_t(time * size * 1e-6 / 16) << " ms/b" << std::endl;
 			}
 		}
-		std::cout << "Radix = " << (bestRadix16 ? 16 : 4) << ", vector size = " << bestVsize << std::endl << std::endl;
+		std::cout << "Radix = " << (bestRadix16 ? 16 : 4) << ", vector size = " << bestVsize << ", chunk size = " << bestCsize << "         " << std::endl << std::endl;
 
 		this->_vsize = bestVsize;
+		this->_csize = bestCsize;
 		this->_radix16 = bestRadix16;
 		engine.setProfiling(false);
 		initEngine();

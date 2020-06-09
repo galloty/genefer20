@@ -17,12 +17,12 @@ typedef cl_uint2	uint32_2;
 typedef cl_ulong4	uint64_4;
 
 #define VSIZE_MAX	256
-#define	CSIZE		8
+#define	CSIZE_MIN	8
 
 class engine : public ocl::device
 {
 private:
-	size_t _nsize = 0, _vsize = 0, _vnsize = 0;
+	size_t _nsize = 0, _vsize = 0, _vnsize = 0, _vn_csize = 0;
 	cl_mem _x12 = nullptr, _x3 = nullptr, _y12 = nullptr, _y3 = nullptr, _d12 = nullptr, _d3 = nullptr;
 	cl_mem _wr12 = nullptr, _wr3 = nullptr, _wri12 = nullptr, _wri3 = nullptr, _res = nullptr, _bb_inv = nullptr, _f = nullptr;
 	cl_kernel _set_P1 = nullptr, _setxy_P12 = nullptr, _setxy_P123 = nullptr, _setdy_P12 = nullptr, _setdy_P123 = nullptr;
@@ -42,7 +42,7 @@ public:
 	virtual ~engine() {}
 
 public:
-	void allocMemory(const size_t size, const size_t vsize)
+	void allocMemory(const size_t size, const size_t vsize, const size_t csize)
 	{
 #if defined (ocl_debug)
 		std::ostringstream ss; ss << "Alloc gpu memory." << std::endl;
@@ -52,6 +52,7 @@ public:
 		_nsize = size;
 		_vsize = vsize;
 		_vnsize = vnsize;
+		_vn_csize = vnsize / csize;
 		_x12 = _createBuffer(CL_MEM_READ_WRITE, sizeof(uint32_2) * vnsize);
 		_x3 = _createBuffer(CL_MEM_READ_WRITE, sizeof(uint32) * vnsize);
 		_y12 = _createBuffer(CL_MEM_READ_WRITE, sizeof(uint32_2) * vnsize);
@@ -64,7 +65,7 @@ public:
 		_wri3 = _createBuffer(CL_MEM_READ_ONLY, sizeof(uint32) * size);
 		_res = _createBuffer(CL_MEM_READ_WRITE, sizeof(uint32) * vnsize);
 		_bb_inv = _createBuffer(CL_MEM_READ_ONLY, sizeof(uint32_2) * vsize);
-		_f = _createBuffer(CL_MEM_READ_WRITE, sizeof(int64) * vnsize / CSIZE);
+		_f = _createBuffer(CL_MEM_READ_WRITE, sizeof(int64) * _vn_csize);
 	}
 
 public:
@@ -81,7 +82,7 @@ public:
 			_releaseBuffer(_d12); _releaseBuffer(_d3);
 			_releaseBuffer(_wr12); _releaseBuffer(_wr3); _releaseBuffer(_wri12); _releaseBuffer(_wri3);
 			_releaseBuffer(_res); _releaseBuffer(_bb_inv); _releaseBuffer(_f);
-			_vnsize = _vsize = _nsize = 0;
+			_vn_csize = _vnsize = _vsize = _nsize = 0;
 		}
 	}
 
@@ -563,22 +564,22 @@ public:
 	void normalize2ax()
 	{
 		_setKernelArg(_normalize2a, 2, sizeof(cl_mem), &_x12);
-		_executeKernel(_normalize2a, this->_vnsize / CSIZE);
+		_executeKernel(_normalize2a, this->_vn_csize);
 	}
 	void normalize2bx()
 	{
 		_setKernelArg(_normalize2b, 2, sizeof(cl_mem), &_x12);
-		_executeKernel(_normalize2b, this->_vnsize / CSIZE);
+		_executeKernel(_normalize2b, this->_vn_csize);
 	}
 	void normalize2ad()
 	{
 		_setKernelArg(_normalize2a, 2, sizeof(cl_mem), &_d12);
-		_executeKernel(_normalize2a, this->_vnsize / CSIZE);
+		_executeKernel(_normalize2a, this->_vn_csize);
 	}
 	void normalize2bd()
 	{
 		_setKernelArg(_normalize2b, 2, sizeof(cl_mem), &_d12);
-		_executeKernel(_normalize2b, this->_vnsize / CSIZE);
+		_executeKernel(_normalize2b, this->_vn_csize);
 	}
 
 public:
@@ -586,24 +587,24 @@ public:
 	{
 		_setKernelArg(_normalize3a, 2, sizeof(cl_mem), &_x12);
 		_setKernelArg(_normalize3a, 3, sizeof(cl_mem), &_x3);
-		_executeKernel(_normalize3a, this->_vnsize / CSIZE);
+		_executeKernel(_normalize3a, this->_vn_csize);
 	}
 	void normalize3bx()
 	{
 		_setKernelArg(_normalize3b, 2, sizeof(cl_mem), &_x12);
 		_setKernelArg(_normalize3b, 3, sizeof(cl_mem), &_x3);
-		_executeKernel(_normalize3b, this->_vnsize / CSIZE);
+		_executeKernel(_normalize3b, this->_vn_csize);
 	}
 	void normalize3ad()
 	{
 		_setKernelArg(_normalize3a, 2, sizeof(cl_mem), &_d12);
 		_setKernelArg(_normalize3a, 3, sizeof(cl_mem), &_d3);
-		_executeKernel(_normalize3a, this->_vnsize / CSIZE);
+		_executeKernel(_normalize3a, this->_vn_csize);
 	}
 	void normalize3bd()
 	{
 		_setKernelArg(_normalize3b, 2, sizeof(cl_mem), &_d12);
 		_setKernelArg(_normalize3b, 3, sizeof(cl_mem), &_d3);
-		_executeKernel(_normalize3b, this->_vnsize / CSIZE);
+		_executeKernel(_normalize3b, this->_vn_csize);
 	}
 };
