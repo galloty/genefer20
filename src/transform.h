@@ -452,7 +452,7 @@ public:
 				{
 					this->_csize = csize;
 					//for (size_t vsize = csize; vsize <= VSIZE_MAX; vsize *= 2)
-					const size_t vsize = _engine.getMaxWorkGroupSize() * 4 / 16;
+					const size_t vsize = std::min(_engine.getMaxWorkGroupSize() * 4 / 16, size_t(VSIZE_MAX));
 					{
 						this->_vsize = vsize;
 
