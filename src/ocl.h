@@ -173,15 +173,17 @@ public:
 	size_t getDeviceCount() const { return _devices.size(); }
 
 public:
-	void displayDevices() const
+	size_t displayDevices() const
 	{
+		const size_t n = _devices.size();
 		std::ostringstream ss;
-		for (size_t i = 0, n = _devices.size(); i < n; ++i)
+		for (size_t i = 0; i < n; ++i)
 		{
 			ss << i << " - " << _devices[i].name << "." << std::endl;
 		}
 		ss << std::endl;
 		pio::print(ss.str());
+		return n;
 	}
 
 public:

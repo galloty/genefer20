@@ -146,7 +146,7 @@ public:
 		if (args.empty()) pio::print(usage());	// print usage, display devices and exit
 
 		ocl::platform platform;
-		platform.displayDevices();
+		if (platform.displayDevices() == 0) throw std::runtime_error("No OpenCL device");
 
 		if (args.empty()) return;
 
