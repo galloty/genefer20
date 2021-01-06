@@ -65,7 +65,7 @@ private:
 	{
 		if (_isBoinc)
 		{
-			FILE * const out_file = _open("out", "w");
+			FILE * const out_file = _open("out", "a");
 			if (out_file == nullptr) throw std::runtime_error("Cannot write results to out file");
 			std::fprintf(out_file, "%s", str.c_str());
 			std::fclose(out_file);

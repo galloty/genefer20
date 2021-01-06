@@ -451,7 +451,8 @@ public:
 				for (size_t csize = CSIZE_MIN; csize <= 64; csize *= 2)
 				{
 					this->_csize = csize;
-					for (size_t vsize = csize; vsize <= VSIZE_MAX; vsize *= 2)
+					//for (size_t vsize = csize; vsize <= VSIZE_MAX; vsize *= 2)
+					const size_t vsize = _engine.getMaxWorkGroupSize() * 4 / 16;
 					{
 						this->_vsize = vsize;
 

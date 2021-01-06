@@ -1,0 +1,31 @@
+CC = g++ -m32 -std=c++17
+RM = cmd \/C del
+CFLAGS = -Wall -Wextra -fexceptions -DBOINC
+CLFLAGS = -O3
+
+BIN_DIR = bin
+SRC_DIR = src
+
+OCl_INC = -I Khronos
+OCL_LIB = -Wl,-enable-stdcall-fixup C:/Windows/SysWOW64/OpenCL.dll
+
+BOINC_DIR = ../boinc
+BOINC_INC = -I $(BOINC_DIR)/api -I $(BOINC_DIR)/lib -I $(BOINC_DIR)/win_build
+BOINC_LIB = $(BOINC_DIR)/lib_win32/libboinc_api.a $(BOINC_DIR)/lib_win32/libboinc.a
+
+EXEC = $(BIN_DIR)\genefer20.exe
+
+OBJS = $(SRC_DIR)\main.o
+
+build: $(EXEC)
+
+clean:
+	$(RM) $(EXEC)
+
+$(EXEC): clean $(OBJS)
+	$(CC) $(OBJS) $(CLFLAGS) $(OCL_LIB) $(BOINC_LIB) -static -o $@
+	$(RM) $(OBJS)
+
+.cpp.o:
+	$(CC) $(CFLAGS) $(CLFLAGS) $(OCl_INC) $(BOINC_INC) -c $< -o $@
+
