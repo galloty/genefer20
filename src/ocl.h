@@ -149,12 +149,15 @@ public:
 					char deviceName[1024]; oclFatal(clGetDeviceInfo(devices[d], CL_DEVICE_NAME, 1024, deviceName, nullptr));
 					char deviceVendor[1024]; oclFatal(clGetDeviceInfo(devices[d], CL_DEVICE_VENDOR, 1024, deviceVendor, nullptr));
 
-					std::stringstream ss; ss << "device '" << deviceName << "', vendor '" << deviceVendor << "', platform '" << platformName << "'";
-					deviceDesc device;
-					device.platform_id = platforms[p];
-					device.device_id = devices[d];
-					device.name = ss.str();
-					_devices.push_back(device);
+					if (std::strstr(deviceVendor, "Intel") == nullptr)
+					{
+						std::stringstream ss; ss << "device '" << deviceName << "', vendor '" << deviceVendor << "', platform '" << platformName << "'";
+						deviceDesc device;
+						device.platform_id = platforms[p];
+						device.device_id = devices[d];
+						device.name = ss.str();
+						_devices.push_back(device);
+					}
 				}
 			}
 		}

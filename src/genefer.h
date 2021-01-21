@@ -294,6 +294,10 @@ public:
 		parseFile(filename, bVec, vsize);
 		const size_t n = bVec.size();
 
+		std::ostringstream ss;
+		ss << "Testing " << n * vsize << " candidates, starting at vector #" << i0 << std::endl << std::endl;
+		pio::print(ss.str());
+
 		if (_isBoinc) boinc_fraction_done(double(i0) / double(n));
 		if (!display)
 		{

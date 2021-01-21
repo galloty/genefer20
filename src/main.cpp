@@ -60,7 +60,7 @@ public:
 	}
 
 private:
-	static std::string header(const bool nl = false)
+	static std::string header(const std::vector<std::string> & args, const bool nl = false)
 	{
 		const char * const sysver =
 #if defined(_WIN64)
@@ -87,10 +87,20 @@ private:
 #endif
 
 		std::ostringstream ss;
-		ss << "genefer20 1.12.0 " << sysver << ssc.str() << std::endl;
+		ss << "genefer20 1.12.1 " << sysver << ssc.str() << std::endl;
 		ss << "Copyright (c) 2020, Yves Gallot" << std::endl;
 		ss << "genefer20 is free source code, under the MIT license." << std::endl;
-		if (nl) ss << std::endl;
+		if (nl)
+		{
+			ss << std::endl << "Command line: '";
+			bool first = true;
+			for (const std::string & arg : args)
+			{
+				if (first) first = false; else ss << " ";
+				ss << arg;
+			}
+			ss << "'" << std::endl << std::endl;
+		}
 		return ss.str();
 	}
 
@@ -135,13 +145,13 @@ public:
 		{
 			if ((arg[0] == '-') && ((arg[1] == 'v') || (arg[1] == 'V')))
 			{
-				pio::error(header());
+				pio::error(header(args));
 				if (bBoinc) boinc_finish(EXIT_SUCCESS);
 				return;
 			}
 		}
 
-		pio::print(header(true));
+		pio::print(header(args, true));
 
 		if (args.empty()) pio::print(usage());	// print usage, display devices and exit
 
@@ -176,7 +186,12 @@ public:
 				d = std::atoi(dev.c_str());
 				if (d >= platform.getDeviceCount()) throw std::runtime_error("invalid device number");
 			}
-
+			else if (arg.substr(0, 8) == "--device")
+			{
+				const std::string dev = ((arg == "--device") && (i + 1 < size)) ? args[++i] : arg.substr(8);
+				d = std::atoi(dev.c_str());
+				if (d >= platform.getDeviceCount()) throw std::runtime_error("invalid device number");
+			}
 			if (arg == "-p") display = true;
 		}
 

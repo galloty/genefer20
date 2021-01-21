@@ -502,7 +502,9 @@ public:
 			this->_radix16 = radix16;
 		}
 
-		std::cout << "Radix = " << (this->_radix16 ? 16 : 4) << ", vector size = " << this->_vsize << ", chunk size = " << this->_csize << "         " << std::endl << std::endl;
+		std::ostringstream ss;
+		ss << "Radix = " << (this->_radix16 ? 16 : 4) << ", vector size = " << this->_vsize << ", chunk size = " << this->_csize << "         " << std::endl << std::endl;
+		pio::print(ss.str());
 
 		engine.setProfiling(false);
 		initEngine();
