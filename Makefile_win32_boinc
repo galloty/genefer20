@@ -11,7 +11,7 @@ OCL_LIB = -Wl,-enable-stdcall-fixup C:/Windows/SysWOW64/OpenCL.dll
 
 BOINC_DIR = ../boinc
 BOINC_INC = -I $(BOINC_DIR)/api -I $(BOINC_DIR)/lib -I $(BOINC_DIR)/win_build
-BOINC_LIB = $(BOINC_DIR)/lib_win32/libboinc_api.a $(BOINC_DIR)/lib_win32/libboinc.a
+BOINC_LIB = $(BOINC_DIR)/lib_win32/libboinc_api.a $(BOINC_DIR)/lib_win32/libboinc.a $(BOINC_DIR)/lib_win32/libboinc_opencl.a
 
 EXEC = $(BIN_DIR)\genefer20.exe
 

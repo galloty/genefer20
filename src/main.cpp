@@ -87,7 +87,7 @@ private:
 #endif
 
 		std::ostringstream ss;
-		ss << "genefer20 1.12.1 " << sysver << ssc.str() << std::endl;
+		ss << "genefer20 1.12.2 " << sysver << ssc.str() << std::endl;
 		ss << "Copyright (c) 2020, Yves Gallot" << std::endl;
 		ss << "genefer20 is free source code, under the MIT license." << std::endl;
 		if (nl)
@@ -122,14 +122,19 @@ private:
 	}
 
 public:
-	void run(const std::vector<std::string> & args)
+	void run(int argc, char * argv[])
 	{
+		std::vector<std::string> args;
+		for (int i = 1; i < argc; ++i) args.push_back(argv[i]);
+
 		bool bBoinc = false;
 #ifdef BOINC
 		for (const std::string & arg : args) if (arg == "-boinc") bBoinc = true;
 #endif
 		pio::getInstance().setBoinc(bBoinc);
 
+		cl_platform_id boinc_platform_id = 0;
+		cl_device_id boinc_device_id = 0;
 		if (bBoinc)
 		{
 			const int retval = boinc_init();
@@ -138,6 +143,17 @@ public:
 				std::ostringstream ss; ss << "boinc_init returned " << retval;
 				throw std::runtime_error(ss.str());
 			}
+#ifdef BOINC
+			if (!boinc_is_standalone())
+			{
+				const int err = boinc_get_opencl_ids(argc, argv, 0, &boinc_device_id, &boinc_platform_id);
+				if ((err != 0) || (boinc_device_id == 0) || (boinc_platform_id == 0))
+				{
+					std::ostringstream ss; ss << std::endl << "error: boinc_get_opencl_ids() failed err = " << err;
+					throw std::runtime_error(ss.str());
+				}
+			}
+#endif
 		}
 
 		// if -v or -V then print header to stderr and exit
@@ -200,7 +216,10 @@ public:
 		genefer & gen = genefer::getInstance();
 		gen.setBoinc(bBoinc);
 
-		engine eng(platform, d);
+		const bool is_boinc_platform = bBoinc && (boinc_device_id != 0) && (boinc_platform_id != 0);
+		const ocl::platform eng_platform = is_boinc_platform ? ocl::platform(boinc_platform_id, boinc_device_id) : platform;
+		const size_t eng_d = is_boinc_platform ? 0 : d;
+		engine eng(eng_platform, eng_d);
 
 		gen.init(n, eng, bBoinc);
 
@@ -226,10 +245,7 @@ int main(int argc, char * argv[])
 	try
 	{
 		application & app = application::getInstance();
-
-		std::vector<std::string> args;
-		for (int i = 1; i < argc; ++i) args.push_back(argv[i]);
-		app.run(args);
+		app.run(argc, argv);
 	}
 	catch (const std::runtime_error & e)
 	{

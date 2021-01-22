@@ -444,14 +444,15 @@ public:
 			vint32 b; for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 300000000 + 210 * i;
 
 			engine.setProfiling(true);
-			for (size_t r = 0; r < 2; ++r)
+			// for (size_t r = 0; r < 2; ++r)
 			{
-				const bool radix16 = (r != 0);
+				// const bool radix16 = (r != 0);
+				const bool radix16 = true;
 				this->_radix16 = radix16;
 				for (size_t csize = CSIZE_MIN; csize <= 64; csize *= 2)
 				{
 					this->_csize = csize;
-					//for (size_t vsize = csize; vsize <= VSIZE_MAX; vsize *= 2)
+					// for (size_t vsize = csize; vsize <= VSIZE_MAX; vsize *= 2)
 					const size_t vsize = std::min(_engine.getMaxWorkGroupSize() * 4 / 16, size_t(VSIZE_MAX));
 					{
 						this->_vsize = vsize;

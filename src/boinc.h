@@ -9,6 +9,7 @@ Please give feedback to the authors if improvement is realized. It is distribute
 
 #ifdef BOINC
 #include "boinc_api.h"
+#include "boinc_opencl.h"
 #else
 
 // fake BOINC (for testing)

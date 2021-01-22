@@ -11,7 +11,7 @@ OCL_LIB = -lOpenCL
 
 BOINC_DIR = ../boinc
 BOINC_INC = -I $(BOINC_DIR)/api -I $(BOINC_DIR)/lib -I $(BOINC_DIR)
-BOINC_LIB = $(BOINC_DIR)/lib_linux64/libboinc_api.a $(BOINC_DIR)/lib_linux64/libboinc.a
+BOINC_LIB = $(BOINC_DIR)/lib_linux64/libboinc_api.a $(BOINC_DIR)/lib_linux64/libboinc.a $(BOINC_DIR)/lib_linux64/libboinc_opencl.a
 
 EXEC = $(BIN_DIR)/genefer20
 
