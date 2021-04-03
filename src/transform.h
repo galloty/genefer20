@@ -452,21 +452,21 @@ public:
 				for (size_t csize = CSIZE_MIN; csize <= 64; csize *= 2)
 				{
 					this->_csize = csize;
-					// for (size_t vsize = csize; vsize <= VSIZE_MAX; vsize *= 2)
-					const size_t vsize = std::min(_engine.getMaxWorkGroupSize() * 4 / 16, size_t(VSIZE_MAX));
+					for (size_t vsize = csize, vsize_max = std::min(_engine.getMaxWorkGroupSize() * 4 / 16, size_t(VSIZE_MAX)); vsize <= vsize_max; vsize *= 2)
 					{
 						this->_vsize = vsize;
 
 						initEngine();
 						init(b, 2);
 						engine.resetProfiles();
-						const size_t m = 16;
+						const size_t m = 2;	//16;
 						for (size_t i = 1; i < m; ++i)
 						{
 							powMod();
-							if ((i & (m / 2 - 1)) == 0) gerbiczStep();
+							if ((m > 2) && ((i & (m / 2 - 1)) == 0)) gerbiczStep();
 						}
-						const double time = engine.getProfileTime() / double(vsize);
+						const double time = engine.getProfileTime() / double(vsize);	// nanoseconds
+						if (m == 2) gerbiczStep();
 						powMod(); copyRes(); gerbiczLastStep();
 						for (size_t j = 0; j < m / 2; ++j) powMod();
 						saveRes();
@@ -474,7 +474,7 @@ public:
 						releaseEngine();
 
 						std::cout << "radix-" << (radix16 ? 16 : 4) << ", csize = " << csize << ", vsize = " << vsize
-								<< ", " << int64_t(time * size * 1e-6 / m) << " ms/b         ";
+								<< ", " << int64_t(time * size * 1e-6 / (m - 1)) << " ms/b         ";
 
 						if (time < bestTime)
 						{
