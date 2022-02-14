@@ -139,7 +139,9 @@ private:
 
 		bool isPrime[VSIZE_MAX];
 		uint64_t r[VSIZE_MAX], r64[VSIZE_MAX];
-		t->isPrime(isPrime, r, r64);
+		const bool err = t->isPrime(isPrime, r, r64);
+
+		if (err) throw std::runtime_error("Computation failed");
 
 		std::ostringstream ssr;
 		for (size_t i = 0; i < vsize; ++i)

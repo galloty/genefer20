@@ -16,7 +16,7 @@ typedef cl_long		int64;
 typedef cl_uint2	uint32_2;
 typedef cl_ulong4	uint64_4;
 
-#define VSIZE_MAX	256
+#define VSIZE_MAX	64	//256
 #define	CSIZE_MIN	8
 
 class engine : public ocl::device

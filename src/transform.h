@@ -452,7 +452,8 @@ public:
 				for (size_t csize = CSIZE_MIN; csize <= 64; csize *= 2)
 				{
 					this->_csize = csize;
-					for (size_t vsize = csize, vsize_max = std::min(_engine.getMaxWorkGroupSize() * 4 / 16, size_t(VSIZE_MAX)); vsize <= vsize_max; vsize *= 2)
+					// for (size_t vsize = csize, vsize_max = std::min(_engine.getMaxWorkGroupSize() * 4 / 16, size_t(VSIZE_MAX)); vsize <= vsize_max; vsize *= 2)
+					const size_t vsize = VSIZE_MAX;
 					{
 						this->_vsize = vsize;
 
@@ -746,7 +747,7 @@ public:
 	}
 
 public:
-	void isPrime(bool prm[VSIZE_MAX], uint64_t res[VSIZE_MAX], uint64_t res64[VSIZE_MAX]) const
+	bool isPrime(bool prm[VSIZE_MAX], uint64_t res[VSIZE_MAX], uint64_t res64[VSIZE_MAX]) const
 	{
 		const size_t n = this->_n;
 		const size_t vsize = this->_vsize;
@@ -755,6 +756,9 @@ public:
 
 		int32 f[VSIZE_MAX];
 		for (size_t i = 0; i < vsize; ++i) f[i] = 0;
+
+		bool err[VSIZE_MAX];
+		for (size_t i = 0; i < vsize; ++i) err[i] = false;
 
 		for (size_t j = 0; j < n; ++j)
 		{
@@ -792,6 +796,7 @@ public:
 			res[i] = r;
 
 			prm[i] = (x[i] == 1);
+			err[i] = (x[i] == 0);
 		}
 
 		uint64_t bi[VSIZE_MAX];
@@ -806,9 +811,15 @@ public:
 				const size_t k = j * vsize + i;
 				const uint32 xk = x[k];
 				prm[i] &= (xk == 0);
+				err[i] &= (xk == 0);
 				res64[i] += xk * bi[i];
 				bi[i] *= b[i];
 			}
 		}
+
+		bool error = false;
+		for (size_t i = 0; i < vsize; ++i) error |= err[i];
+
+		return error;
 	}
 };
