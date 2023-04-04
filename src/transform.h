@@ -95,10 +95,7 @@ private:
 	uint32 * const _x;
 	uint32_2 * const _gx;
 	uint32_2 * const _gd;
-	size_t _vsize = 0;
 	size_t _csize = 0;
-	bool _radix16 = true;
-	bool _3primes = true;
 	int _b_s = 0;
 	uint32 _b[VSIZE_MAX];
 	uint64_4 _c[32];
@@ -164,18 +161,9 @@ private:
 		const int ln = ilog2(uint32_t(n));
 		const bool odd = (ln % 2 != 0);
 
-		if (this->_3primes)
-		{
-			_engine.setxy_P123();
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4y_P123(s, lm);
-			if (odd) _engine.forward2y_P123(n / 2, 0);
-		}
-		else
-		{
-			_engine.setxy_P12();
-			for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4y_P12(s, lm);
-			if (odd) _engine.forward2y_P12(n / 2, 0);
-		}
+		_engine.setxy();
+		for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4y(s, lm);
+		if (odd) _engine.forward2y(n / 2, 0);
 	}
 
 private:
@@ -184,168 +172,31 @@ private:
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
 
-		if (this->_3primes)
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16x_P12(s, lm - 4); _engine.forward16x_P3(s, lm - 4); }
-			if (lm == 1) _engine.square2x_P123();
-			else if (lm == 2) _engine.square4x_P123();
-			else if (lm == 3) { _engine.square8x_P12(); _engine.square8x_P3(); }
-			else if (lm == 4)  { _engine.square16x_P12(); _engine.square16x_P3(); }
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16x_P12(s, lm - 4); _engine.backward16x_P3(s, lm - 4); }
-			_engine.normalize3ax();
-			_engine.normalize3bx();
-		}
-		else
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x_P12(s, lm - 4);
-			if (lm == 1) _engine.square2x_P12();
-			else if (lm == 2) _engine.square4x_P12();
-			else if (lm == 3) _engine.square8x_P12();
-			else if (lm == 4) _engine.square16x_P12();
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x_P12(s, lm - 4);
-			_engine.normalize2ax();
-			_engine.normalize2bx();
-		}
+		size_t s = 1, lm = ln;
+		for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x(s, lm - 4);
+		if      (lm == 1) _engine.square2x();
+		else if (lm == 2) _engine.square4x();
+		else if (lm == 3) _engine.square8x();
+		else if (lm == 4) _engine.square16x();
+		for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x(s, lm - 4);
+		_engine.normalize_1x();
+		_engine.normalize_2x();
 	}
 
 private:
-	void mulMod64(const uint64 & c) const
+	void mulMod(const uint64 & c) const
 	{
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
 
-		if (this->_3primes)
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16x_P12(s, lm - 4); _engine.forward16x_P3(s, lm - 4); }
-			if (lm > 2) _engine.forward4x_P123(s, lm - 2);
-			if (lm % 2 != 0) _engine.mul2cond64xy_P123(c); else _engine.mul4cond64xy_P123(c);
-			if (lm > 2) _engine.backward4x_P123(s, lm - 2);
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16x_P12(s, lm - 4); _engine.backward16x_P3(s, lm - 4); }
-			_engine.normalize3ax();
-			_engine.normalize3bx();
-		}
-		else
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x_P12(s, lm - 4);
-			if (lm > 2) _engine.forward4x_P12(s, lm - 2);
-			if (lm % 2 != 0) _engine.mul2cond64xy_P12(c); else _engine.mul4cond64xy_P12(c);
-			if (lm > 2) _engine.backward4x_P12(s, lm - 2);
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x_P12(s, lm - 4);
-			_engine.normalize2ax();
-			_engine.normalize2bx();
-		}
-	}
-
-private:
-	void mulMod256(const uint64_4 & c) const
-	{
-		const size_t n = this->_n;
-		const int ln = ilog2(uint32_t(n));
-
-		if (this->_3primes)
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16x_P12(s, lm - 4); _engine.forward16x_P3(s, lm - 4); }
-			if (lm > 2) _engine.forward4x_P123(s, lm - 2);
-			if (lm % 2 != 0) _engine.mul2cond256xy_P123(c); else _engine.mul4cond256xy_P123(c);
-			if (lm > 2) _engine.backward4x_P123(s, lm - 2);
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16x_P12(s, lm - 4); _engine.backward16x_P3(s, lm - 4); }
-			_engine.normalize3ax();
-			_engine.normalize3bx();
-		}
-		else
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x_P12(s, lm - 4);
-			if (lm > 2) _engine.forward4x_P12(s, lm - 2);
-			if (lm % 2 != 0) _engine.mul2cond256xy_P12(c); else _engine.mul4cond256xy_P12(c);
-			if (lm > 2) _engine.backward4x_P12(s, lm - 2);
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x_P12(s, lm - 4);
-			_engine.normalize2ax();
-			_engine.normalize2bx();
-		}
-	}
-
-private:
-	void squareMod_4() const
-	{
-		const size_t n = this->_n;
-		const int ln = ilog2(uint32_t(n));
-
-		if (this->_3primes)
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P123(s, lm - 2);
-			if (lm % 2 != 0) _engine.square2x_P123(); else _engine.square4x_P123();
-			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P123(s, lm - 2);
-			_engine.normalize3ax();
-			_engine.normalize3bx();
-		}
-		else
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P12(s, lm - 2);
-			if (lm % 2 != 0) _engine.square2x_P12(); else _engine.square4x_P12();
-			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P12(s, lm - 2);
-			_engine.normalize2ax();
-			_engine.normalize2bx();
-		}
-	}
-
-private:
-	void mulMod64_4(const uint64 & c) const
-	{
-		const size_t n = this->_n;
-		const int ln = ilog2(uint32_t(n));
-
-		if (this->_3primes)
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P123(s, lm - 2);
-			if (lm % 2 != 0) _engine.mul2cond64xy_P123(c); else _engine.mul4cond64xy_P123(c);
-			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P123(s, lm - 2);
-			_engine.normalize3ax();
-			_engine.normalize3bx();
-		}
-		else
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P12(s, lm - 2);
-			if (lm % 2 != 0) _engine.mul2cond64xy_P12(c); else _engine.mul4cond64xy_P12(c);
-			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P12(s, lm - 2);
-			_engine.normalize2ax();
-			_engine.normalize2bx();
-		}
-	}
-
-private:
-	void mulMod256_4(const uint64_4 & c) const
-	{
-		const size_t n = this->_n;
-		const int ln = ilog2(uint32_t(n));
-
-		if (this->_3primes)
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P123(s, lm - 2);
-			if (lm % 2 != 0) _engine.mul2cond256xy_P123(c); else _engine.mul4cond256xy_P123(c);
-			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P123(s, lm - 2);
-			_engine.normalize3ax();
-			_engine.normalize3bx();
-		}
-		else
-		{
-			size_t s = 1, lm = ln;
-			for (; lm > 2; s *= 4, lm -= 2) _engine.forward4x_P12(s, lm - 2);
-			if (lm % 2 != 0) _engine.mul2cond256xy_P12(c); else _engine.mul4cond256xy_P12(c);
-			for (s /= 4, lm += 2; s > 0; s /= 4, lm += 2) _engine.backward4x_P12(s, lm - 2);
-			_engine.normalize2ax();
-			_engine.normalize2bx();
-		}
+		size_t s = 1, lm = ln;
+		for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x(s, lm - 4);
+		if (lm > 2) _engine.forward4x(s, lm - 2);
+		if (lm % 2 != 0) _engine.mul2condxy(c); else _engine.mul4condxy(c);
+		if (lm > 2) _engine.backward4x(s, lm - 2);
+		for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x(s, lm - 4);
+		_engine.normalize_1x();
+		_engine.normalize_2x();
 	}
 
 private:
@@ -395,10 +246,10 @@ private:
 	void initEngine() const
 	{
 		const size_t n = this->_n;
-		const size_t vsize = this->_vsize, csize = this->_csize;
+		const size_t csize = this->_csize;
 
 		std::stringstream src;
-		src << "#define\tVSIZE\t" << vsize << std::endl;
+		src << "#define\tVSIZE\t" << VSIZE_MAX << std::endl;
 		src << "#define\tCSIZE\t" << csize << std::endl << std::endl;
 		src << "#define\tnorm1\t" << Zp1::norm(n).get() << "u" << std::endl;
 		src << "#define\tnorm2\t" << Zp2::norm(n).get() << "u" << std::endl;
@@ -409,7 +260,7 @@ private:
 		if (!readOpenCL("ocl/kernel.cl", "src/ocl/kernel.h", "src_ocl_kernel", src)) src << src_ocl_kernel;
 
 		_engine.loadProgram(src.str());
-		_engine.allocMemory(n, vsize, csize);
+		_engine.allocMemory(n, VSIZE_MAX, csize);
 		_engine.createKernels();
 
 		std::vector<uint32> wr1(n), wr2(n), wr3(n), wri1(n), wri2(n), wri3(n);
@@ -438,74 +289,50 @@ public:
 		{
 			std::cout << " auto-tuning...\r";
 			double bestTime = 1e100;
-			bool bestRadix16 = true;
-			size_t bestCsize = CSIZE_MIN, bestVsize = CSIZE_MIN;
+			size_t bestCsize = CSIZE_MIN;
 
 			vint32 b; for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 300000000 + 210 * i;
 
 			engine.setProfiling(true);
-			// for (size_t r = 0; r < 2; ++r)
+			for (size_t csize = CSIZE_MIN; csize <= 64; csize *= 2)
 			{
-				// const bool radix16 = (r != 0);
-				const bool radix16 = true;
-				this->_radix16 = radix16;
-				for (size_t csize = CSIZE_MIN; csize <= 64; csize *= 2)
+				this->_csize = csize;
+				initEngine();
+				init(b, 2);
+				engine.resetProfiles();
+				const size_t m = 4;
+				for (size_t i = 1; i < m; ++i)
 				{
-					this->_csize = csize;
-					// for (size_t vsize = csize, vsize_max = std::min(_engine.getMaxWorkGroupSize() * 4 / 16, size_t(VSIZE_MAX)); vsize <= vsize_max; vsize *= 2)
-					const size_t vsize = VSIZE_MAX;
-					{
-						this->_vsize = vsize;
+					powMod();
+					if ((m > 2) && ((i & (m / 2 - 1)) == 0)) gerbiczStep();
+				}
+				const double time = engine.getProfileTime() / double(VSIZE_MAX);	// nanoseconds
+				if (m == 2) gerbiczStep();
+				powMod(); copyRes(); gerbiczLastStep();
+				for (size_t j = 0; j < m / 2; ++j) powMod();
+				saveRes();
+				if (!gerbiczCheck(2)) throw std::runtime_error("Gerbicz failed");
+				releaseEngine();
 
-						initEngine();
-						init(b, 2);
-						engine.resetProfiles();
-						const size_t m = 2;	//16;
-						for (size_t i = 1; i < m; ++i)
-						{
-							powMod();
-							if ((m > 2) && ((i & (m / 2 - 1)) == 0)) gerbiczStep();
-						}
-						const double time = engine.getProfileTime() / double(vsize);	// nanoseconds
-						if (m == 2) gerbiczStep();
-						powMod(); copyRes(); gerbiczLastStep();
-						for (size_t j = 0; j < m / 2; ++j) powMod();
-						saveRes();
-						if (!gerbiczCheck(2)) throw std::runtime_error("Gerbicz failed");
-						releaseEngine();
+				std::cout << "radix-" << (radix16 ? 16 : 4) << ", csize = " << csize << ", vsize = " << VSIZE_MAX
+						<< ", " << int64_t(time * VSIZE_MAX * 1e-6 / (m - 1)) << " ms/b" << std::endl;
 
-						std::cout << "radix-" << (radix16 ? 16 : 4) << ", csize = " << csize << ", vsize = " << vsize
-								<< ", " << int64_t(time * size * 1e-6 / (m - 1)) << " ms/b         ";
-
-						if (time < bestTime)
-						{
-							bestTime = time;
-							bestRadix16 = radix16;
-							bestCsize = csize;
-							bestVsize = vsize;
-							std::cout << std::endl;
-						}
-						else
-						{
-							std::cout << "\r";
-						}
-					}
+				if (time < bestTime)
+				{
+					bestTime = time;
+					bestCsize = csize;
 				}
 			}
 
-			this->_vsize = bestVsize;
 			this->_csize = bestCsize;
-			this->_radix16 = bestRadix16;
 		}
 		else
 		{
-			this->_vsize = vsize;
 			this->_csize = csize;
-			this->_radix16 = radix16;
 		}
 
 		std::ostringstream ss;
-		ss << "Radix = " << (this->_radix16 ? 16 : 4) << ", vector size = " << this->_vsize << ", chunk size = " << this->_csize << "         " << std::endl << std::endl;
+		ss << "Chunk size = " << this->_csize << std::endl << std::endl;
 		pio::print(ss.str());
 
 		engine.setProfiling(false);
@@ -523,9 +350,7 @@ public:
 	}
 
 public:
-	size_t getVsize() const { return this->_vsize; }
 	size_t getCsize() const { return this->_csize; }
-	bool getRadix16() const { return this->_radix16; }
 
 public:
 	void copyRes() { _engine.setxres_P1(); }
@@ -541,12 +366,9 @@ public:
 public:
 	void init(const vint32 & b, const uint32_t a)
 	{
-		const size_t n = this->_n;
-		const size_t vsize = this->_vsize;
+		const size_t vsize = VSIZE_MAX;
 
 		const uint32_t bmax = b[vsize - 1];
-		this->_3primes = (bmax * uint64_t(bmax) >= (P1P2 / (2 * n)));
-
 		const int32 s = ilog2(bmax) - 1;
 		this->_b_s = s;
 
@@ -573,8 +395,7 @@ public:
 		_engine.writeMemory_b(bb_inv.data());
 		_engine.setParam_bs(s);
 
-		if (this->_3primes) _engine.reset_P123(a);
-		else _engine.reset_P12(a);
+		_engine.reset(a);
 	}
 
 public:
@@ -582,50 +403,13 @@ public:
 	{
 		initMultiplicand();
 
-		const bool radix16 = this->_radix16;
 		const uint64_4 * const c = this->_c;
 
-		if (radix16)
+		for (int j = this->_b_s; j >= 0; --j)
 		{
-			if (this->_vsize <= 64)
-			{
-				for (int j = this->_b_s; j >= 0; --j)
-				{
-					squareMod();
-					const uint64 cj = c[j].s[0];
-					if (cj != 0) mulMod64(cj);
-				}
-			}
-			else
-			{
-				for (int j = this->_b_s; j >= 0; --j)
-				{
-					squareMod();
-					const uint64 cj = c[j].s[0] | c[j].s[1] | c[j].s[2] | c[j].s[3];
-					if (cj != 0) mulMod256(c[j]);
-				}
-			}
-		}
-		else
-		{
-			if (this->_vsize <= 64)
-			{
-				for (int j = this->_b_s; j >= 0; --j)
-				{
-					squareMod_4();
-					const uint64 cj = c[j].s[0];
-					if (cj != 0) mulMod64_4(cj);
-				}
-			}
-			else
-			{
-				for (int j = this->_b_s; j >= 0; --j)
-				{
-					squareMod_4();
-					const uint64 cj = c[j].s[0] | c[j].s[1] | c[j].s[2] | c[j].s[3];
-					if (cj != 0) mulMod256_4(c[j]);
-				}
-			}
+			squareMod();
+			const uint64 cj = c[j].s[0];
+			if (cj != 0) mulMod(cj);
 		}
 	}
 
@@ -635,32 +419,16 @@ public:
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
 
-		if (this->_3primes)
-		{
-			_engine.setxy_P123();
-			for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) { _engine.forward16y_P12(s, lm - 4); _engine.forward16y_P3(s, lm - 4); }
-			size_t s = 1, lm = ln;
-			for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16d_P12(s, lm - 4); _engine.forward16d_P3(s, lm - 4); }
-			if (lm > 2) { _engine.forward4y_P123(s, lm - 2); _engine.forward4d_P123(s, lm - 2); }
-			if (lm % 2 != 0) _engine.mul2dy_P123(); else _engine.mul4dy_P123();
-			if (lm > 2) _engine.backward4d_P123(s, lm - 2);
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16d_P12(s, lm - 4); _engine.backward16d_P3(s, lm - 4); }
-			_engine.normalize3ad();
-			_engine.normalize3bd();
-		}
-		else
-		{
-			_engine.setxy_P12();
-			for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) _engine.forward16y_P12(s, lm - 4);
-			size_t s = 1, lm = ln;
-			for (; lm > 4; s *= 16, lm -= 4) _engine.forward16d_P12(s, lm - 4);
-			if (lm > 2) { _engine.forward4y_P12(s, lm - 2); _engine.forward4d_P12(s, lm - 2); }
-			if (lm % 2 != 0) _engine.mul2dy_P12(); else _engine.mul4dy_P12();
-			if (lm > 2) _engine.backward4d_P12(s, lm - 2);
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16d_P12(s, lm - 4);
-			_engine.normalize2ad();
-			_engine.normalize2bd();
-		}
+		_engine.setxy();
+		for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) _engine.forward16y(s, lm - 4);
+		size_t s = 1, lm = ln;
+		for (; lm > 4; s *= 16, lm -= 4) _engine.forward16d(s, lm - 4);
+		if (lm > 2) { _engine.forward4y(s, lm - 2); _engine.forward4d(s, lm - 2); }
+		if (lm % 2 != 0) _engine.mul2dy(); else _engine.mul4dy();
+		if (lm > 2) _engine.backward4d(s, lm - 2);
+		for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16d(s, lm - 4);
+		_engine.normalize_1d();
+		_engine.normalize_2d();
 	}
 
 public:
@@ -669,41 +437,24 @@ public:
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
 
-		if (this->_3primes)
-		{
-			_engine.setdy_P123();
-			for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) { _engine.forward16y_P12(s, lm - 4); _engine.forward16y_P3(s, lm - 4); }
-			size_t s = 1, lm = ln;
-			for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16x_P12(s, lm - 4); _engine.forward16x_P3(s, lm - 4); }
-			if (lm > 2) { _engine.forward4y_P123(s, lm - 2); _engine.forward4x_P123(s, lm - 2); }
-			if (lm % 2 != 0) _engine.mul2xy_P123(); else _engine.mul4xy_P123();
-			if (lm > 2) _engine.backward4x_P123(s, lm - 2);
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) { _engine.backward16x_P12(s, lm - 4); _engine.backward16x_P3(s, lm - 4); }
-			_engine.swap_xd_P123();
-			_engine.normalize3ad();
-			_engine.normalize3bd();
-		}
-		else
-		{
-			_engine.setdy_P12();
-			for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) _engine.forward16y_P12(s, lm - 4);
-			size_t s = 1, lm = ln;
-			for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x_P12(s, lm - 4);
-			if (lm > 2) { _engine.forward4y_P12(s, lm - 2); _engine.forward4x_P12(s, lm - 2); }
-			if (lm % 2 != 0) _engine.mul2xy_P12(); else _engine.mul4xy_P12();
-			if (lm > 2) _engine.backward4x_P12(s, lm - 2);
-			for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x_P12(s, lm - 4);
-			_engine.swap_xd_P12();
-			_engine.normalize2ad();
-			_engine.normalize2bd();
-		}
+		_engine.setdy();
+		for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) _engine.forward16y(s, lm - 4);
+		size_t s = 1, lm = ln;
+		for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x(s, lm - 4);
+		if (lm > 2) { _engine.forward4y(s, lm - 2); _engine.forward4x(s, lm - 2); }
+		if (lm % 2 != 0) _engine.mul2xy(); else _engine.mul4xy();
+		if (lm > 2) _engine.backward4x(s, lm - 2);
+		for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x(s, lm - 4);
+		_engine.swap_xd();
+		_engine.normalize_1d();
+		_engine.normalize_2d();
 	}
 
 public:
 	bool gerbiczCheck(const uint32_t a) const
 	{
 		const size_t n = this->_n;
-		const size_t vsize = this->_vsize;
+		const size_t vsize = VSIZE_MAX;
 		const uint32_2 * const x = this->_gx;
 		uint32_2 * const d = this->_gd;
 		const uint32 * const b = this->_b;
@@ -750,7 +501,7 @@ public:
 	bool isPrime(bool prm[VSIZE_MAX], uint64_t res[VSIZE_MAX], uint64_t res64[VSIZE_MAX]) const
 	{
 		const size_t n = this->_n;
-		const size_t vsize = this->_vsize;
+		const size_t vsize = VSIZE_MAX;
 		uint32 * const x = this->_x;
 		const uint32 * const b = this->_b;
 

@@ -133,7 +133,7 @@ private:
 		const int n = this->_n;
 		const size_t m = size_t(1) << n;
 		transform * const t = this->_transform;
-		const size_t vsize = t->getVsize();
+		const size_t vsize = VSIZE_MAX;
 
 		if (!t->gerbiczCheck(a)) throw std::runtime_error("Gerbicz failed");
 
@@ -188,7 +188,7 @@ public:
 	{
 		createTransform();
 
-		const size_t vsize = this->_transform->getVsize();
+		const size_t vsize = VSIZE_MAX;
 		double elapsedTimeGPU = 0, elapsedTimeCPU = 0;
 		uint32 bi = 300000000;
 		for (size_t j = 1; true; ++j)
@@ -214,7 +214,7 @@ public:
 	void valid()
 	{
 		createTransform();
-		const size_t vsize = this->_transform->getVsize();
+		const size_t vsize = VSIZE_MAX;
 		vint32 b;
 		uint32 bi = 300000000;
 		for (size_t j = 0; j < 1024 / vsize; ++j)
@@ -283,14 +283,14 @@ public:
 			ctxFile >> i0;
 			ctxFile >> vsize;
 			ctxFile >> csize;
-			int r; ctxFile >> r; radix16 = (r != 0);
+			int r; ctxFile >> r; // radix16 = (r != 0);
 			ctxFile.close();
 
 			std::cout << "Resuming from a checkpoint." << std::endl;
 		}
 
 		createTransform(vsize, csize, radix16);
-		vsize = _transform->getVsize(); csize = _transform->getCsize(); radix16 = _transform->getRadix16();
+		vsize = VSIZE_MAX; csize = _transform->getCsize();
 
 		std::vector<vint32> bVec;
 		parseFile(filename, bVec, vsize);
