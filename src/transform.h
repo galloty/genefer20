@@ -12,7 +12,7 @@ Please give feedback to the authors if improvement is realized. It is distribute
 
 #include <cstdint>
 #include <cmath>
-#include <sstream>
+#include <fstream>
 #include <array>
 
 #include "ocl/kernel.h"
@@ -93,12 +93,8 @@ private:
 	const bool _isBoinc;
 	engine & _engine;
 	uint32 * const _x;
-	uint32_2 * const _gx;
-	uint32_2 * const _gd;
 	size_t _csize = 0;
-	int _b_s = 0;
 	uint32 _b[VSIZE_MAX];
-	uint64_4 _c[32];
 
 private:
 	static size_t bitRev(const size_t i, const size_t n)
@@ -127,77 +123,101 @@ private:
 	}
 
 private:
-	static uint32 reduce32(int32 & f, const uint32 b)
+	// f = f' * b + r such that 0 <= r < b
+	static uint32 reduce(int64 & f, const uint32 b)
 	{
-		int32 d = 0;
-		if (f < 0) { f += b; --d; }
-		else if (uint32(f) >= b) { f -= b; ++d; }
+		int64 d = 0;
+		while (f < 0) { f += b; --d; }
+		while (f >= b) { f -= b; ++d; }
 		const uint32 r = uint32(f);
 		f = d;
 		return r;
 	}
 
 private:
-	static uint32 reduce64(int64 & f, const uint32 b)
-	{
-		int32 d = 0;
-		if (f < 0)
-		{
-			do { f += b; --d; } while (f < 0);
-		}
-		else
-		{
-			while (f >= b) { f -= b; ++d; }
-		}
-		const uint32 r = uint32(f);
-		f = d;
-		return r;
-	}
+	// void initMultiplicand() const
+	// {
+	// 	const size_t n = this->_n;
+	// 	const int ln = ilog2(uint32_t(n));
+	// 	const bool odd = (ln % 2 != 0);
+
+	// 	_engine.copy(1, 0);
+	// 	for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4y(s, lm);
+	// 	if (odd) _engine.forward2y(n / 2, 0);
+	// }
 
 private:
-	void initMultiplicand() const
-	{
-		const size_t n = this->_n;
-		const int ln = ilog2(uint32_t(n));
-		const bool odd = (ln % 2 != 0);
+	// void squareMod() const
+	// {
+	// 	const int ln = ilog2(uint32_t(this->_n));
 
-		_engine.setxy();
-		for (size_t lm = ln - 2, s = 1; s <= n / 4; lm -= 2, s *= 4) _engine.forward4y(s, lm);
-		if (odd) _engine.forward2y(n / 2, 0);
+	// 	size_t s = 1, lm = ln;
+	// 	for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x(s, lm - 4);
+	// 	if      (lm == 1) _engine.square2();
+	// 	else if (lm == 2) _engine.square4();
+	// 	else if (lm == 3) _engine.square8();
+	// 	else if (lm == 4) _engine.square16();
+	// 	for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x(s, lm - 4);
+	// 	_engine.normalize1(0);
+	// 	_engine.normalize2();
+	// }
+
+public:
+	void copy(const uint32 dst, const uint32 src) const
+	{
+		_engine.copy(dst, src);
 	}
 
-private:
-	void squareMod() const
+public:
+	void squareDup(const uint64 & dup) const
 	{
-		const size_t n = this->_n;
-		const int ln = ilog2(uint32_t(n));
+		const int ln = ilog2(uint32_t(this->_n));
 
 		size_t s = 1, lm = ln;
 		for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x(s, lm - 4);
-		if      (lm == 1) _engine.square2x();
-		else if (lm == 2) _engine.square4x();
-		else if (lm == 3) _engine.square8x();
-		else if (lm == 4) _engine.square16x();
+		if      (lm == 1) _engine.square2();
+		else if (lm == 2) _engine.square4();
+		else if (lm == 3) _engine.square8();
+		else if (lm == 4) _engine.square16();
 		for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x(s, lm - 4);
-		_engine.normalize_1x();
-		_engine.normalize_2x();
+		_engine.normalize1(dup);
+		_engine.normalize2();
 	}
 
-private:
-	void mulMod(const uint64 & c) const
+	void mul() const
 	{
 		const size_t n = this->_n;
 		const int ln = ilog2(uint32_t(n));
+		// const bool odd = (ln % 2 != 0);
+
+		// for (size_t lm = ln, s = 1; lm > 2; s *= 4, lm -= 2) _engine.forward4y(s, lm - 2);
+		// if (odd) _engine.forward2y(n / 2, 0);
 
 		size_t s = 1, lm = ln;
-		for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x(s, lm - 4);
-		if (lm > 2) _engine.forward4x(s, lm - 2);
-		if (lm % 2 != 0) _engine.mul2condxy(c); else _engine.mul4condxy(c);
+		for (; lm > 4; s *= 16, lm -= 4) { _engine.forward16x(s, lm - 4); _engine.forward16y(s, lm - 4); }
+		if (lm > 2) { _engine.forward4x(s, lm - 2); _engine.forward4y(s, lm - 2); }
+		if (lm % 2 != 0) _engine.mul2(1); else _engine.mul4(1);
 		if (lm > 2) _engine.backward4x(s, lm - 2);
 		for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x(s, lm - 4);
-		_engine.normalize_1x();
-		_engine.normalize_2x();
+		_engine.normalize1(0);
+		_engine.normalize2();
 	}
+
+private:
+	// void mulMod(const uint64 & c) const
+	// {
+	// 	const size_t n = this->_n;
+	// 	const int ln = ilog2(uint32_t(n));
+
+	// 	size_t s = 1, lm = ln;
+	// 	for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x(s, lm - 4);
+	// 	if (lm > 2) _engine.forward4x(s, lm - 2);
+	// 	if (lm % 2 != 0) _engine.mul2condxy(c); else _engine.mul4condxy(c);
+	// 	if (lm > 2) _engine.backward4x(s, lm - 2);
+	// 	for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x(s, lm - 4);
+	// 	_engine.normalize_1x(0);
+	// 	_engine.normalize_2x();
+	// }
 
 private:
 	bool readOpenCL(const char * const clFileName, const char * const headerFileName, const char * const varName, std::stringstream & src) const
@@ -250,10 +270,11 @@ private:
 
 		std::stringstream src;
 		src << "#define\tVSIZE\t" << VSIZE_MAX << std::endl;
+		src << "#define\tNSIZE\t" << n << std::endl;
 		src << "#define\tCSIZE\t" << csize << std::endl << std::endl;
-		src << "#define\tnorm1\t" << Zp1::norm(n).get() << "u" << std::endl;
-		src << "#define\tnorm2\t" << Zp2::norm(n).get() << "u" << std::endl;
-		src << "#define\tnorm3\t" << Zp3::norm(n).get() << "u" << std::endl;
+		src << "#define\tNORM1\t" << Zp1::norm(n).get() << "u" << std::endl;
+		src << "#define\tNORM2\t" << Zp2::norm(n).get() << "u" << std::endl;
+		src << "#define\tNORM3\t" << Zp3::norm(n).get() << "u" << std::endl;
 		src << std::endl;
 
 		// if xxx.cl file is not found then source is src_ocl_xxx string in src/ocl/xxx.h
@@ -282,40 +303,41 @@ private:
 
 public:
 	transform(const size_t size, engine & engine, const bool isBoinc, const size_t vsize, const size_t csize, const bool radix16) :
-		_n(size), _isBoinc(isBoinc), _engine(engine),
-		_x(new uint32[VSIZE_MAX * size]), _gx(new uint32_2[VSIZE_MAX * size]), _gd(new uint32_2[VSIZE_MAX * size])
+		_n(size), _isBoinc(isBoinc), _engine(engine), _x(new uint32[3 * VSIZE_MAX * size])
 	{
 		if (vsize == 0)
 		{
 			std::cout << " auto-tuning...\r";
 			double bestTime = 1e100;
-			size_t bestCsize = CSIZE_MIN;
+			size_t bestCsize = 8;
 
-			vint32 b; for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 300000000 + 210 * i;
+			vint32 b; for (size_t i = 0; i < VSIZE_MAX; ++i) b[i] = 1073741824 + 210 * i;
 
 			engine.setProfiling(true);
-			for (size_t csize = CSIZE_MIN; csize <= 64; csize *= 2)
+			for (size_t csize = 8; csize <= 64; csize *= 2)
 			{
 				this->_csize = csize;
 				initEngine();
-				init(b, 2);
+				init(b);
+				set(1);
 				engine.resetProfiles();
-				const size_t m = 4;
-				for (size_t i = 1; i < m; ++i)
+				const size_t m = 16;
+				uint64 e = 0; for (size_t j = 0; j < VSIZE_MAX; ++j) e |= uint64(j % 2) << j;
+				for (size_t i = 0; i < m; ++i)
 				{
-					powMod();
-					if ((m > 2) && ((i & (m / 2 - 1)) == 0)) gerbiczStep();
+					squareDup(e);
+					// if ((m > 2) && ((i & (m / 2 - 1)) == 0)) gerbiczStep();
 				}
 				const double time = engine.getProfileTime() / double(VSIZE_MAX);	// nanoseconds
-				if (m == 2) gerbiczStep();
-				powMod(); copyRes(); gerbiczLastStep();
-				for (size_t j = 0; j < m / 2; ++j) powMod();
-				saveRes();
-				if (!gerbiczCheck(2)) throw std::runtime_error("Gerbicz failed");
+				// if (m == 2) gerbiczStep();
+				// powMod(); copyRes(); gerbiczLastStep();
+				// for (size_t j = 0; j < m / 2; ++j) powMod();
+				// saveRes();
+				// if (!gerbiczCheck(2)) throw std::runtime_error("Gerbicz failed");
 				releaseEngine();
 
 				std::cout << "radix-" << (radix16 ? 16 : 4) << ", csize = " << csize << ", vsize = " << VSIZE_MAX
-						<< ", " << int64_t(time * VSIZE_MAX * 1e-6 / (m - 1)) << " ms/b" << std::endl;
+						<< ", " << int64_t(time * VSIZE_MAX * 1e-6 / m) << " ms/b" << std::endl;
 
 				if (time < bestTime)
 				{
@@ -345,204 +367,190 @@ public:
 		releaseEngine();
 
 		delete[] _x;
-		delete[] _gx;
-		delete[] _gd;
 	}
 
 public:
 	size_t getCsize() const { return this->_csize; }
 
 public:
-	void copyRes() { _engine.setxres_P1(); }
-
-public:
-	void saveRes()
+	void init(const vint32 & b)
 	{
-		_engine.readMemory_res(this->_x);
-		_engine.readMemory_x12(this->_gx);
-		_engine.readMemory_d12(this->_gd);
-	}
-
-public:
-	void init(const vint32 & b, const uint32_t a)
-	{
-		const size_t vsize = VSIZE_MAX;
-
-		const uint32_t bmax = b[vsize - 1];
-		const int32 s = ilog2(bmax) - 1;
-		this->_b_s = s;
-
-		std::vector<uint32_2> bb_inv(vsize);
-		for (size_t i = 0; i < vsize; ++i)
+		std::vector<uint32_2> bb_inv(VSIZE_MAX);
+		std::vector<int32> bs(VSIZE_MAX);
+		for (size_t i = 0; i < VSIZE_MAX; ++i)
 		{
+			const int32 s = ilog2(b[i]) - 1;
 			this->_b[i] = b[i];
 			bb_inv[i].s[0] = b[i];
 			bb_inv[i].s[1] = uint32((uint64(1) << (s + 32)) / b[i]);
+			bs[i] = s;
 		}
 
-		uint64_4 * const c = this->_c;
-		for (int j = s; j >= 0; --j)
-		{
-			uint64_4 cj; cj.s[0] = cj.s[1] = cj.s[2] = cj.s[3] = 0;
-			for (size_t i = 0; i < vsize; ++i)
-			{
-				const uint64 ci = ((b[i] & (uint32(1) << j)) != 0) ? 1 : 0;
-				cj.s[i / 64] |= ci << i;
-			}
-			c[j] = cj;
-		}
-
-		_engine.writeMemory_b(bb_inv.data());
-		_engine.setParam_bs(s);
-
-		_engine.reset(a);
+		_engine.writeMemory_b(bb_inv.data(), bs.data());
 	}
 
-public:
-	void powMod() const
+	void set(const uint32 a)
 	{
-		initMultiplicand();
-
-		const uint64_4 * const c = this->_c;
-
-		for (int j = this->_b_s; j >= 0; --j)
-		{
-			squareMod();
-			const uint64 cj = c[j].s[0];
-			if (cj != 0) mulMod(cj);
-		}
+		_engine.set(a);
 	}
 
 public:
-	void gerbiczStep() const
+	// void powMod() const
+	// {
+	// 	initMultiplicand();
+
+	// 	const uint64_4 * const c = this->_c;
+
+	// 	for (int j = this->_b_s; j >= 0; --j)
+	// 	{
+	// 		squareMod();
+	// 		const uint64 cj = c[j].s[0];
+	// 		if (cj != 0) mulMod(cj);
+	// 	}
+	// }
+
+public:
+	// void gerbiczStep() const
+	// {
+	// 	const size_t n = this->_n;
+	// 	const int ln = ilog2(uint32_t(n));
+
+	// 	_engine.setxy();
+	// 	for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) _engine.forward16y(s, lm - 4);
+	// 	size_t s = 1, lm = ln;
+	// 	for (; lm > 4; s *= 16, lm -= 4) _engine.forward16d(s, lm - 4);
+	// 	if (lm > 2) { _engine.forward4y(s, lm - 2); _engine.forward4d(s, lm - 2); }
+	// 	if (lm % 2 != 0) _engine.mul2dy(); else _engine.mul4dy();
+	// 	if (lm > 2) _engine.backward4d(s, lm - 2);
+	// 	for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16d(s, lm - 4);
+	// 	_engine.normalize_1d();
+	// 	_engine.normalize_2d();
+	// }
+
+public:
+	// void gerbiczLastStep() const
+	// {
+	// 	const size_t n = this->_n;
+	// 	const int ln = ilog2(uint32_t(n));
+
+	// 	_engine.setdy();
+	// 	for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) _engine.forward16y(s, lm - 4);
+	// 	size_t s = 1, lm = ln;
+	// 	for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x(s, lm - 4);
+	// 	if (lm > 2) { _engine.forward4y(s, lm - 2); _engine.forward4x(s, lm - 2); }
+	// 	if (lm % 2 != 0) _engine.mul2xy(); else _engine.mul4xy();
+	// 	if (lm > 2) _engine.backward4x(s, lm - 2);
+	// 	for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x(s, lm - 4);
+	// 	_engine.swap_xd();
+	// 	_engine.normalize_1d();
+	// 	_engine.normalize_2d();
+	// }
+
+public:
+	// bool gerbiczCheck(const uint32_t a) const
+	// {
+	// 	const size_t n = this->_n;
+	// 	const size_t vsize = VSIZE_MAX;
+	// 	const uint32_2 * const x = this->_gx;
+	// 	uint32_2 * const d = this->_gd;
+	// 	const uint32 * const b = this->_b;
+
+	// 	int32 f[VSIZE_MAX];
+	// 	for (size_t i = 0; i < vsize; ++i) f[i] = 0;
+
+	// 	for (size_t j = 0; j < n; ++j)
+	// 	{
+	// 		for (size_t i = 0; i < vsize; ++i)
+	// 		{
+	// 			const size_t k = j * vsize + i;
+	// 			const uint32 xk = x[k].s[0], dk = d[k].s[0];
+	// 			const uint32 cxk = (xk > P1 / 2) ? P1 : 0, cdk = (dk > P1 / 2) ? P1 : 0;
+	// 			const int32 ixk = int32(xk - cxk), idk = int32(dk - cdk);
+	// 			int64 e = f[i] + ixk * int64(a) - idk;
+	// 			d[k].s[0] = reduce64(e, b[i]);
+	// 			f[i] = int32(e);	// |e| <= 3
+	// 		}
+	// 	}
+
+	// 	for (size_t i = 0; i < vsize; ++i)
+	// 	{
+	// 		int32 e = f[i];
+	// 		while (e != 0)
+	// 		{
+	// 			e = -e;		// a_0 = -a_n
+	// 			for (size_t j = 0; j < n; ++j)
+	// 			{
+	// 				const size_t k = j * vsize + i;
+	// 				e += int32(d[k].s[0]);
+	// 				d[k].s[0] = reduce32(e, b[i]);
+	// 				if (e == 0) break;
+	// 			}
+	// 		}
+	// 	}
+
+	// 	for (size_t k = 0; k < vsize * n; ++k) if (d[k].s[0] != 0) return false;
+
+	// 	return true;
+	// }
+
+public:
+	void getInt(const uint32 reg) const
 	{
 		const size_t n = this->_n;
-		const int ln = ilog2(uint32_t(n));
-
-		_engine.setxy();
-		for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) _engine.forward16y(s, lm - 4);
-		size_t s = 1, lm = ln;
-		for (; lm > 4; s *= 16, lm -= 4) _engine.forward16d(s, lm - 4);
-		if (lm > 2) { _engine.forward4y(s, lm - 2); _engine.forward4d(s, lm - 2); }
-		if (lm % 2 != 0) _engine.mul2dy(); else _engine.mul4dy();
-		if (lm > 2) _engine.backward4d(s, lm - 2);
-		for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16d(s, lm - 4);
-		_engine.normalize_1d();
-		_engine.normalize_2d();
-	}
-
-public:
-	void gerbiczLastStep() const
-	{
-		const size_t n = this->_n;
-		const int ln = ilog2(uint32_t(n));
-
-		_engine.setdy();
-		for (size_t s = 1, lm = ln; lm > 4; s *= 16, lm -= 4) _engine.forward16y(s, lm - 4);
-		size_t s = 1, lm = ln;
-		for (; lm > 4; s *= 16, lm -= 4) _engine.forward16x(s, lm - 4);
-		if (lm > 2) { _engine.forward4y(s, lm - 2); _engine.forward4x(s, lm - 2); }
-		if (lm % 2 != 0) _engine.mul2xy(); else _engine.mul4xy();
-		if (lm > 2) _engine.backward4x(s, lm - 2);
-		for (s /= 16, lm += 4; s > 0; s /= 16, lm += 4) _engine.backward16x(s, lm - 4);
-		_engine.swap_xd();
-		_engine.normalize_1d();
-		_engine.normalize_2d();
-	}
-
-public:
-	bool gerbiczCheck(const uint32_t a) const
-	{
-		const size_t n = this->_n;
-		const size_t vsize = VSIZE_MAX;
-		const uint32_2 * const x = this->_gx;
-		uint32_2 * const d = this->_gd;
+		uint32 * const x = &this->_x[reg * VSIZE_MAX * n];
 		const uint32 * const b = this->_b;
 
-		int32 f[VSIZE_MAX];
-		for (size_t i = 0; i < vsize; ++i) f[i] = 0;
+		_engine.readMemory_x3(x);
+
+		int64 f[VSIZE_MAX];
+		for (size_t i = 0; i < VSIZE_MAX; ++i) f[i] = 0;
 
 		for (size_t j = 0; j < n; ++j)
 		{
-			for (size_t i = 0; i < vsize; ++i)
+			for (size_t i = 0; i < VSIZE_MAX; ++i)
 			{
-				const size_t k = j * vsize + i;
-				const uint32 xk = x[k].s[0], dk = d[k].s[0];
-				const uint32 cxk = (xk > P1 / 2) ? P1 : 0, cdk = (dk > P1 / 2) ? P1 : 0;
-				const int32 ixk = int32(xk - cxk), idk = int32(dk - cdk);
-				int64 e = f[i] + ixk * int64(a) - idk;
-				d[k].s[0] = reduce64(e, b[i]);
-				f[i] = int32(e);	// |e| <= 3
+				const size_t k = j * VSIZE_MAX + i;
+				const uint32 xk = x[k];
+				const int32 ixk = (xk > P3 / 2) ? int32(xk - P3) : int32(xk);
+				int64 e = f[i] + ixk;
+				x[k] = reduce(e, b[i]);
+				f[i] = e;
 			}
 		}
 
-		for (size_t i = 0; i < vsize; ++i)
+		for (size_t i = 0; i < VSIZE_MAX; ++i)
 		{
-			int32 e = f[i];
+			int64 e = f[i];
 			while (e != 0)
 			{
 				e = -e;		// a_0 = -a_n
 				for (size_t j = 0; j < n; ++j)
 				{
-					const size_t k = j * vsize + i;
-					e += int32(d[k].s[0]);
-					d[k].s[0] = reduce32(e, b[i]);
+					const size_t k = j * VSIZE_MAX + i;
+					e += int32(x[k]);
+					x[k] = reduce(e, b[i]);
 					if (e == 0) break;
 				}
 			}
 		}
-
-		for (size_t k = 0; k < vsize * n; ++k) if (d[k].s[0] != 0) return false;
-
-		return true;
 	}
 
 public:
 	bool isPrime(bool prm[VSIZE_MAX], uint64_t res[VSIZE_MAX], uint64_t res64[VSIZE_MAX]) const
 	{
 		const size_t n = this->_n;
-		const size_t vsize = VSIZE_MAX;
-		uint32 * const x = this->_x;
+		const uint32 * const x = &this->_x[0 * VSIZE_MAX * n];
 		const uint32 * const b = this->_b;
 
-		int32 f[VSIZE_MAX];
-		for (size_t i = 0; i < vsize; ++i) f[i] = 0;
-
 		bool err[VSIZE_MAX];
-		for (size_t i = 0; i < vsize; ++i) err[i] = false;
+		for (size_t i = 0; i < VSIZE_MAX; ++i) err[i] = false;
 
-		for (size_t j = 0; j < n; ++j)
+		for (size_t i = 0; i < VSIZE_MAX; ++i)
 		{
-			for (size_t i = 0; i < vsize; ++i)
-			{
-				const size_t k = j * vsize + i;
-				const uint32 xk = x[k];
-				const int32 ixk = (xk > P1 / 2) ? int32(xk - P1) : int32(xk);
-				int64 e = f[i] + int64(ixk);
-				x[k] = reduce64(e, b[i]);
-				f[i] = int32(e);
-			}
-		}
-
-		for (size_t i = 0; i < vsize; ++i)
-		{
-			int32 e = f[i];
-			while (e != 0)
-			{
-				e = -e;		// a_0 = -a_n
-				for (size_t j = 0; j < n; ++j)
-				{
-					const size_t k = j * vsize + i;
-					e += int32(x[k]);
-					x[k] = reduce32(e, b[i]);
-					if (e == 0) break;
-				}
-			}
-
 			uint64_t r = 0;
 			for (size_t j = 8; j > 0; --j)
 			{
-				r = (r << 8) | uint8_t(x[(n - j) * vsize + i]);
+				r = (r << 8) | uint8_t(x[(n - j) * VSIZE_MAX + i]);
 			}
 			res[i] = r;
 
@@ -551,15 +559,15 @@ public:
 		}
 
 		uint64_t bi[VSIZE_MAX];
-		for (size_t i = 0; i < vsize; ++i) bi[i] = b[i];
+		for (size_t i = 0; i < VSIZE_MAX; ++i) bi[i] = b[i];
 
-		for (size_t i = 0; i < vsize; ++i) res64[i] = x[i];
+		for (size_t i = 0; i < VSIZE_MAX; ++i) res64[i] = x[i];
 
 		for (size_t j = 1; j < n; ++j)
 		{
-			for (size_t i = 0; i < vsize; ++i)
+			for (size_t i = 0; i < VSIZE_MAX; ++i)
 			{
-				const size_t k = j * vsize + i;
+				const size_t k = j * VSIZE_MAX + i;
 				const uint32 xk = x[k];
 				prm[i] &= (xk == 0);
 				err[i] &= (xk == 0);
@@ -569,8 +577,27 @@ public:
 		}
 
 		bool error = false;
-		for (size_t i = 0; i < vsize; ++i) error |= err[i];
+		for (size_t i = 0; i < VSIZE_MAX; ++i) error |= err[i];
 
 		return error;
+	}
+
+public:
+	bool GerbiczLiCheck() const
+	{
+		const size_t n = this->_n;
+		uint32 * const y = &this->_x[1 * VSIZE_MAX * n];
+		uint32 * const z = &this->_x[2 * VSIZE_MAX * n];
+
+		bool success = true;
+		for (size_t j = 0; j < n; ++j)
+		{
+			for (size_t i = 0; i < VSIZE_MAX; ++i)
+			{
+				const size_t k = j * VSIZE_MAX + i;
+				success &= (y[k] == z[k]);
+			}
+		}
+		return success;
 	}
 };

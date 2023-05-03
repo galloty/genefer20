@@ -12,6 +12,8 @@ Please give feedback to the authors if improvement is realized. It is distribute
 #include <iostream>
 #include <fstream>
 #include <cstdio>
+#include <thread>
+#include <chrono>
 
 #include "boinc.h"
 
@@ -37,26 +39,38 @@ private:
 	bool _isBoinc = false;
 
 private:
-	// print: console: cout, boinc: stderr
+	// print: console: stdout, boinc: stderr
 	void _print(const std::string & str) const
 	{
-		if (_isBoinc) { std::fprintf(stderr, "%s", str.c_str()); std::fflush(stderr); }
+		if (_isBoinc) { std::cerr << str << std::flush; }
 		else { std::cout << str; }
 	}
 
 private:
-	// display: console: cout, boinc: -
+	// display: console: stdout, boinc: -
 	void _display(const std::string & str) const
 	{
 		if (!_isBoinc) { std::cout << str << std::flush; }
 	}
 
 private:
-	// error: normal: cerr, boinc: stderr
+	// error: normal: stderr, boinc: stderr
 	void _error(const std::string & str, const bool fatal) const
 	{
-		if (_isBoinc) { std::fprintf(stderr, "%s", str.c_str()); std::fflush(stderr); if (fatal) boinc_finish(EXIT_FAILURE); }
-		else { std::cerr << str; }
+		std::cerr << str << std::flush;
+		if (fatal)
+		{
+			if (_isBoinc)
+			{
+				// delay five minutes before reporting to the host in order to slow down the error rate.
+				std::this_thread::sleep_for(std::chrono::minutes(5));
+				boinc_finish(EXIT_FAILURE);
+			}
+			else
+			{
+				exit(EXIT_FAILURE);
+			}
+		}
 	}
 
 private:

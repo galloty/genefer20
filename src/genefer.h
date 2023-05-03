@@ -15,6 +15,10 @@ Please give feedback to the authors if improvement is realized. It is distribute
 #include <thread>
 #include <chrono>
 
+#include <gmp.h>
+
+inline int ilog2_32(const uint32_t n) { return 31 - __builtin_clz(n); }
+
 class genefer
 {
 private:
@@ -97,45 +101,87 @@ private:
 	}
 
 private:
-	void check_GPU(const vint32 & b, const uint32_t a) const
+	void check(const vint32 & b, const bool display) const
 	{
 		const int n = this->_n;
-		const size_t m = size_t(1) << n;
 		transform * const t = this->_transform;
 
-		t->init(b, a);
-
-		// Prp test is a^{b^{2^n}} ?= 1
-		// Let L | 2^n and B = b^L. We have b^{2^n} = B^{{2^n}/L}.
-		// Let d = a * a^B * a^{B^2} * ... * a^{B^{{2^n}/L - 1}}.
-		// Gerbicz test is d * a^{B^{{2^n}/L}} ?= a * d^B.
-
-		const size_t L = size_t(1) << (n / 2);
-
-		for (size_t i = 1; i < m; ++i)
+		mpz_t exponent[VSIZE_MAX];
+		int i0 = 0;
+		for (size_t j = 0; j < VSIZE_MAX; ++j)
 		{
-			t->powMod();
-			if ((i & (L - 1)) == 0) t->gerbiczStep();
+			mpz_init(exponent[j]);
+			mpz_ui_pow_ui(exponent[j], b[j], static_cast<unsigned long int>(1) << n);
+			i0 = std::max(i0, static_cast<int>(mpz_sizeinbase(exponent[j], 2) - 1));
 		}
 
-		t->powMod();
-		t->copyRes();
-		t->gerbiczLastStep();
+		t->init(b);
+		t->set(1);
+		t->copy(1, 0);	// d(t)
 
-		for (size_t j = 0; j < L; ++j) t->powMod();
+		const size_t L = (size_t(2) << (ilog2_32(static_cast<uint32_t>(i0)) / 2));
+		const int B_GL = static_cast<int>((i0 - 1) / L) + 1;
 
-		t->saveRes();
-	}
+		for (int i = i0; i >= 0; --i)
+		{
+			uint64 e = 0; for (size_t j = 0; j < VSIZE_MAX; ++j) e |= ((mpz_tstbit(exponent[j], mp_bitcnt_t(i)) != 0) ? uint64(1) : uint64(0)) << j;
+			t->squareDup(e);
 
-private:
-	void check_CPU(const vint32 & b, const uint32_t a, const bool display, const bool verif = false) const
-	{
-		const int n = this->_n;
-		const size_t m = size_t(1) << n;
-		transform * const t = this->_transform;
-		const size_t vsize = VSIZE_MAX;
+			if ((i % B_GL == 0) && (i / B_GL != 0))
+			{
+				t->copy(2, 0);
+				t->mul();	// d(t)
+				t->copy(1, 0);
+				t->copy(0, 2);
+			}
+		}
 
-		if (!t->gerbiczCheck(a)) throw std::runtime_error("Gerbicz failed");
+		t->getInt(0);
+
+		// d(t + 1) = d(t) * result
+		t->copy(2, 1);
+		t->mul();
+		t->copy(1, 2);
+		t->copy(2, 0);
+
+		// d(t)^{2^B}
+		t->copy(0, 1);
+		for (int i = B_GL - 1; i >= 0; --i)
+		{
+			t->squareDup(0);
+		}
+		t->copy(1, 0);
+
+		mpz_t res[VSIZE_MAX];
+		i0 = 0;
+		mpz_t e, tmp; mpz_init(e); mpz_init(tmp);
+		for (size_t j = 0; j < VSIZE_MAX; ++j)
+		{
+			mpz_init_set_ui(res[j], 0);
+			mpz_set(e, exponent[j]);
+			while (mpz_sgn(e) != 0)
+			{
+				mpz_mod_2exp(tmp, e, static_cast<unsigned long int>(B_GL));
+				mpz_add(res[j], res[j], tmp);
+				mpz_div_2exp(e, e, static_cast<unsigned long int>(B_GL));
+			}
+			i0 = std::max(i0, static_cast<int>(mpz_sizeinbase(res[j], 2) - 1));
+		}
+		mpz_clear(e); mpz_clear(tmp);
+
+		// 2^res
+		t->set(1);
+		for (int i = i0; i >= 0; --i)
+		{
+			uint64 e = 0; for (size_t j = 0; j < VSIZE_MAX; ++j) e |= ((mpz_tstbit(res[j], mp_bitcnt_t(i)) != 0) ? uint64(1) : uint64(0)) << j;
+			t->squareDup(e);
+		}
+
+		for (size_t j = 0; j < VSIZE_MAX; ++j) mpz_clear(res[j]);
+		for (size_t j = 0; j < VSIZE_MAX; ++j) mpz_clear(exponent[j]);
+
+		// d(t)^{2^B} * 2^res
+		t->mul();
 
 		bool isPrime[VSIZE_MAX];
 		uint64_t r[VSIZE_MAX], r64[VSIZE_MAX];
@@ -143,12 +189,22 @@ private:
 
 		if (err) throw std::runtime_error("Computation failed");
 
+		// d(t)^{2^B} * 2^res ?= d(t + 1)
+		t->getInt(1);
+		// const uint64_t h1 = gi.gethash64();
+		t->copy(0, 2);
+		t->getInt(2);
+		// const uint64_t h2 = gi.gethash64();
+
+		const bool success = t->GerbiczLiCheck();
+		if (!success) throw std::runtime_error("Gerbicz failed");
+
 		std::ostringstream ssr;
-		for (size_t i = 0; i < vsize; ++i)
+		for (size_t i = 0; i < VSIZE_MAX; ++i)
 		{
 			if ((i > 0) && (b[i] == b[i - 1])) continue;
 
-			ssr << b[i] << "^" << m << " + 1 is ";
+			ssr << b[i] << "^" << (1 << n) << " + 1 is ";
 			if (isPrime[i])
 			{
 				ssr << "a probable prime";
@@ -163,66 +219,6 @@ private:
 
 		if (display) pio::display(std::string("\r") + ssr.str());
 		pio::result(ssr.str());
-
-		if (verif)
-		{
-			std::ostringstream ss; ss << "verif_" << n << ".txt";
-			std::ofstream file(ss.str(), std::ios::app);
-			if (file.is_open())
-			{
-				for (size_t i = 0; i < vsize; ++i) file << res64String(r64[i]) << std::endl;
-				file.close();
-			}
-		}
-	}
-
-private:
-	void check(const vint32 & b, const uint32_t a, const bool display, const bool verif = false) const
-	{
-		check_GPU(b, a);
-		check_CPU(b, a, display, verif);
-	}
-
-public:
-	void bench()
-	{
-		createTransform();
-
-		const size_t vsize = VSIZE_MAX;
-		double elapsedTimeGPU = 0, elapsedTimeCPU = 0;
-		uint32 bi = 300000000;
-		for (size_t j = 1; true; ++j)
-		{
-			const timer::time t0 = timer::currentTime();
-			vint32 b;
-			for (size_t i = 0; i < vsize; ++i) { b[i] = bi; bi += 2; }
-			check_GPU(b, 2);
-			const timer::time t1 = timer::currentTime();
-			elapsedTimeGPU += timer::diffTime(t1, t0);
-			check_CPU(b, 2, false);
-			elapsedTimeCPU += timer::diffTime(timer::currentTime(), t1);
-			const double elapsedTime = elapsedTimeGPU + elapsedTimeCPU;
-			std::cout << std::setprecision(3) << "GPU: " << 100 * elapsedTimeGPU / elapsedTime << "%, CPU: " << 100 * elapsedTimeCPU / elapsedTime
-				<< "%, " << (j * vsize / elapsedTime) << " GFN-" << this->_n << "/sec" << std::endl;
-			if (_quit) break;
-		}
-
-		deleteTransform();
-	}
-
-public:
-	void valid()
-	{
-		createTransform();
-		const size_t vsize = VSIZE_MAX;
-		vint32 b;
-		uint32 bi = 300000000;
-		for (size_t j = 0; j < 1024 / vsize; ++j)
-		{
-			for (size_t i = 0; i < vsize; ++i) { b[i] = bi; bi += 2; }
-			check(b, 2, true, true);
-		}
-		deleteTransform();
 	}
 
 private:
@@ -310,7 +306,7 @@ public:
 		size_t i;
 		for (i = i0; i < n; ++i)
 		{
-			check(bVec[i], 2, display);
+			check(bVec[i], display);
 
 			std::ofstream ctxFile(ctxFilename);
 			if (ctxFile.is_open())

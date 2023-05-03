@@ -88,7 +88,7 @@ private:
 
 		std::ostringstream ss;
 		ss << "genefer20 1.14.0 " << sysver << ssc.str() << std::endl;
-		ss << "Copyright (c) 2020-21, Yves Gallot" << std::endl;
+		ss << "Copyright (c) 2020-23, Yves Gallot" << std::endl;
 		ss << "genefer20 is free source code, under the MIT license." << std::endl;
 		if (nl)
 		{
@@ -174,11 +174,11 @@ public:
 		ocl::platform platform;
 		if (platform.displayDevices() == 0) throw std::runtime_error("No OpenCL device");
 
-		if (args.empty()) return;
+		// if (args.empty()) return;
 
 		size_t d = 0;
-		int n = 0;
-		std::string filename;	// = "GFN8.txt";	// test
+		int n = 10;
+		std::string filename = "GFN10.txt";	// test
 		bool display = false;
 		// parse args
 		for (size_t i = 0, size = args.size(); i < size; ++i)
@@ -223,16 +223,7 @@ public:
 
 		gen.init(n, eng, bBoinc);
 
-		// gen.valid(); return;
-
-		if (!filename.empty())
-		{
-			gen.checkFile(filename, display);
-		}
-		else
-		{
-			gen.bench();
-		}
+		if (!filename.empty()) gen.checkFile(filename, display);
 
 		gen.release();
 
