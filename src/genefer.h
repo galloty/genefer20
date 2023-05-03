@@ -99,7 +99,29 @@ private:
 	}
 
 private:
-	void check(const vint32 & b, const bool display) const
+	void boincMonitor()
+	{
+		BOINC_STATUS status; boinc_get_status(&status);
+		if (boincQuitRequest(status)) { quit(); return; }
+
+		while (status.suspended != 0)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			boinc_get_status(&status);
+			if (boincQuitRequest(status)) { quit(); return; }
+		}
+	}
+
+private:
+	inline static uint64 get_bitcnt(const size_t i, const mpz_t * const ze)
+	{
+		uint64 e = 0;
+		for (size_t j = 0; j < VSIZE; ++j) e |= ((mpz_tstbit(ze[j], mp_bitcnt_t(i)) != 0) ? uint64(1) : uint64(0)) << j;
+		return e;
+	}
+
+private:
+	bool check(const vint32 & b, const bool display)
 	{
 		const int n = this->_n;
 		transform * const t = this->_transform;
@@ -122,8 +144,10 @@ private:
 
 		for (int i = i0; i >= 0; --i)
 		{
-			uint64 e = 0; for (size_t j = 0; j < VSIZE; ++j) e |= ((mpz_tstbit(exponent[j], mp_bitcnt_t(i)) != 0) ? uint64(1) : uint64(0)) << j;
-			t->squareDup(e);
+			if (_isBoinc) boincMonitor();
+			if (_quit) return false;
+
+			t->squareDup(get_bitcnt(size_t(i), exponent.data()));
 
 			if ((i % B_GL == 0) && (i / B_GL != 0))
 			{
@@ -134,7 +158,10 @@ private:
 			}
 		}
 
+		// get result
 		t->getInt(0);
+
+		// Gerbicz-Li error checking
 
 		// d(t + 1) = d(t) * result
 		t->copy(2, 1);
@@ -146,36 +173,40 @@ private:
 		t->copy(0, 1);
 		for (int i = B_GL - 1; i >= 0; --i)
 		{
+			if (_isBoinc) boincMonitor();
+			if (_quit) return false;
+
 			t->squareDup(0);
 		}
 		t->copy(1, 0);
 
-		std::array<mpz_t, VSIZE> res;
 		i0 = 0;
-		mpz_t e, tmp; mpz_init(e); mpz_init(tmp);
+		mpz_t res, tmp; mpz_init(res); mpz_init(tmp);
 		for (size_t j = 0; j < VSIZE; ++j)
 		{
-			mpz_init_set_ui(res[j], 0);
-			mpz_set(e, exponent[j]);
+			mpz_init_set_ui(res, 0);
+			mpz_t & e = exponent[j];
 			while (mpz_sgn(e) != 0)
 			{
 				mpz_mod_2exp(tmp, e, B_GL);
-				mpz_add(res[j], res[j], tmp);
+				mpz_add(res, res, tmp);
 				mpz_div_2exp(e, e, B_GL);
 			}
-			i0 = std::max(i0, int(mpz_sizeinbase(res[j], 2) - 1));
+			mpz_set(e, res);
+			i0 = std::max(i0, int(mpz_sizeinbase(res, 2) - 1));
 		}
-		mpz_clear(e); mpz_clear(tmp);
+		mpz_clear(res); mpz_clear(tmp);
 
 		// 2^res
 		t->set(1);
 		for (int i = i0; i >= 0; --i)
 		{
-			uint64 e = 0; for (size_t j = 0; j < VSIZE; ++j) e |= ((mpz_tstbit(res[j], mp_bitcnt_t(i)) != 0) ? uint64(1) : uint64(0)) << j;
-			t->squareDup(e);
+			if (_isBoinc) boincMonitor();
+			if (_quit) return false;
+
+			t->squareDup(get_bitcnt(size_t(i), exponent.data()));
 		}
 
-		for (size_t j = 0; j < VSIZE; ++j) mpz_clear(res[j]);
 		for (size_t j = 0; j < VSIZE; ++j) mpz_clear(exponent[j]);
 
 		// d(t)^{2^B} * 2^res
@@ -184,16 +215,12 @@ private:
 		std::array<bool, VSIZE> isPrime;
 		std::array<uint64_t, VSIZE> r, r64;
 		const bool err = t->isPrime(isPrime.data(), r.data(), r64.data());
-
 		if (err) throw std::runtime_error("Computation failed");
 
 		// d(t)^{2^B} * 2^res ?= d(t + 1)
 		t->getInt(1);
-		// const uint64_t h1 = gi.gethash64();
 		t->copy(0, 2);
 		t->getInt(2);
-		// const uint64_t h2 = gi.gethash64();
-
 		const bool success = t->GerbiczLiCheck();
 		if (!success) throw std::runtime_error("Gerbicz failed");
 
@@ -217,6 +244,7 @@ private:
 
 		if (display) pio::display(std::string("\r") + ssr.str());
 		pio::result(ssr.str());
+		return true;
 	}
 
 private:
@@ -290,7 +318,7 @@ public:
 		size_t i;
 		for (i = i0; i < n; ++i)
 		{
-			check(bVec[i], display);
+			if (!check(bVec[i], display)) break;
 
 			std::ofstream ctxFile(ctxFilename);
 			if (ctxFile.is_open())
@@ -300,16 +328,14 @@ public:
 			}
 
 			if (_isBoinc) boinc_fraction_done(double(i + 1) / double(n));
-			if (!display)
+			else if (!display)
 			{
 				std::ostringstream ss; ss << std::setprecision(3) << " " << ((i + 1) * 100.0 / n) << "% done    \r";
 				std::cout << ss.str();
 			}
-
-			if (_quit) break;
 		}
 
-		if (!display) std::cout << std::endl;
+		if (!_isBoinc && !display) std::cout << std::endl;
 
 		if (i == n)
 		{

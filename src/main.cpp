@@ -147,7 +147,11 @@ public:
 		cl_device_id boinc_device_id = 0;
 		if (bBoinc)
 		{
-			const int retval = boinc_init();
+			BOINC_OPTIONS boinc_options;
+			boinc_options_defaults(boinc_options);
+			boinc_options.direct_process_action = 0;
+			boinc_options.normal_thread_priority = 1;
+			const int retval = boinc_init_options(&boinc_options);
 			if (retval != 0)
 			{
 				std::ostringstream ss; ss << "boinc_init returned " << retval;
@@ -222,6 +226,7 @@ public:
 		}
 
 		if (n == 0) return;
+		if (filename.empty()) return;
 
 		genefer & gen = genefer::getInstance();
 		gen.setBoinc(bBoinc);
@@ -232,12 +237,10 @@ public:
 		engine eng(eng_platform, eng_d);
 
 		gen.init(n, eng, bBoinc);
-
-		if (!filename.empty()) gen.checkFile(filename, display);
-
+		const bool success = gen.checkFile(filename, display);
 		gen.release();
 
-		if (bBoinc) boinc_finish(EXIT_SUCCESS);
+		if (success && bBoinc) boinc_finish(EXIT_SUCCESS);
 	}
 };
 

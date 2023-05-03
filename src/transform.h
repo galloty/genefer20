@@ -123,18 +123,6 @@ private:
 		}
 	}
 
-private:
-	// f = f' * b + r such that 0 <= r < b
-	static uint32 reduce(int64 & f, const uint32 b)
-	{
-		int64 d = 0;
-		while (f < 0) { f += b; --d; }
-		while (f >= b) { f -= b; ++d; }
-		const uint32 r = uint32(f);
-		f = d;
-		return r;
-	}
-
 public:
 	void set(const uint32 a) const { _engine.set(a); }
 	void copy(const uint32 dst, const uint32 src) const { _engine.copy(dst, src); }
@@ -312,6 +300,18 @@ public:
 		}
 
 		_engine.writeMemory_b(bb_inv.data(), bs.data());
+	}
+
+private:
+	// f = f' * b + r such that 0 <= r < b
+	static uint32 reduce(int64 & f, const uint32 b)
+	{
+		int64 d = 0;
+		while (f < 0) { f += b; --d; }
+		while (f >= b) { f -= b; ++d; }
+		const uint32 r = uint32(f);
+		f = d;
+		return r;
 	}
 
 public:

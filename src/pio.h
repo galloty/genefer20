@@ -64,7 +64,7 @@ private:
 			{
 				// delay five minutes before reporting to the host in order to slow down the error rate.
 				std::this_thread::sleep_for(std::chrono::minutes(5));
-				boinc_finish(EXIT_FAILURE);
+				boinc_finish(EXIT_CHILD_FAILED);
 			}
 			else
 			{
