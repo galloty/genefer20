@@ -68,26 +68,36 @@ private:
 #elif defined(_WIN32)
 			"win32";
 #elif defined(__linux__)
-#ifdef __x86_64
-			"linux64";
+#if defined(__x86_64)
+			"linux x64";
+#elif defined(__aarch64__)
+			"linux arm64";
 #else
-			"linux32";
+			"linux x86";
 #endif
 #elif defined(__APPLE__)
-			"macOS";
+#if defined(__aarch64__)
+			"macOS arm64";
+#else
+			"macOS x64";
+#endif
 #else
 			"unknown";
 #endif
 
 		std::ostringstream ssc;
-#if defined(__GNUC__)
-		ssc << " gcc-" << __GNUC__ << "." << __GNUC_MINOR__ << "." << __GNUC_PATCHLEVEL__;
-#elif defined(__clang__)
-		ssc << " clang-" << __clang_major__ << "." << __clang_minor__ << "." << __clang_patchlevel__;
+#if defined(__clang__)
+		ssc << ", clang-" << __clang_major__ << "." << __clang_minor__ << "." << __clang_patchlevel__;
+#elif defined(__GNUC__)
+		ssc << ", gcc-" << __GNUC__ << "." << __GNUC_MINOR__ << "." << __GNUC_PATCHLEVEL__;
+#endif
+
+#if defined(BOINC)
+		ssc << ", boinc-" << BOINC_VERSION_STRING;
 #endif
 
 		std::ostringstream ss;
-		ss << "genefer20 1.14.0 " << sysver << ssc.str() << std::endl;
+		ss << "genefer20 version 2.0.0 (" << sysver << ssc.str() << ")" << std::endl;
 		ss << "Copyright (c) 2020-23, Yves Gallot" << std::endl;
 		ss << "genefer20 is free source code, under the MIT license." << std::endl;
 		if (nl)

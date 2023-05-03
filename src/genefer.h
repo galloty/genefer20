@@ -17,8 +17,6 @@ Please give feedback to the authors if improvement is realized. It is distribute
 
 #include <gmp.h>
 
-inline int ilog2_32(const uint32_t n) { return 31 - __builtin_clz(n); }
-
 class genefer
 {
 private:
@@ -85,9 +83,9 @@ public:
 	}
 
 private:
-	void createTransform(const size_t vsize = 0, const size_t csize = 0, const bool radix16 = true)
+	void createTransform(const size_t csize)
 	{
-		this->_transform = new transform(size_t(1) << this->_n, *(this->_engine), this->_isBoinc, vsize, csize, radix16);
+		this->_transform = new transform(size_t(1) << this->_n, *(this->_engine), this->_isBoinc, csize);
 	}
 
 private:
@@ -106,25 +104,25 @@ private:
 		const int n = this->_n;
 		transform * const t = this->_transform;
 
-		mpz_t exponent[VSIZE_MAX];
+		std::array<mpz_t, VSIZE> exponent;
 		int i0 = 0;
-		for (size_t j = 0; j < VSIZE_MAX; ++j)
+		for (size_t j = 0; j < VSIZE; ++j)
 		{
 			mpz_init(exponent[j]);
-			mpz_ui_pow_ui(exponent[j], b[j], static_cast<unsigned long int>(1) << n);
-			i0 = std::max(i0, static_cast<int>(mpz_sizeinbase(exponent[j], 2) - 1));
+			mpz_ui_pow_ui(exponent[j], b[j], 1u << n);
+			i0 = std::max(i0, int(mpz_sizeinbase(exponent[j], 2) - 1));
 		}
 
 		t->init(b);
 		t->set(1);
 		t->copy(1, 0);	// d(t)
 
-		const size_t L = (size_t(2) << (ilog2_32(static_cast<uint32_t>(i0)) / 2));
-		const int B_GL = static_cast<int>((i0 - 1) / L) + 1;
+		const size_t L = (size_t(2) << (ilog2_32(uint32_t(i0)) / 2));
+		const int B_GL = int((i0 - 1) / L) + 1;
 
 		for (int i = i0; i >= 0; --i)
 		{
-			uint64 e = 0; for (size_t j = 0; j < VSIZE_MAX; ++j) e |= ((mpz_tstbit(exponent[j], mp_bitcnt_t(i)) != 0) ? uint64(1) : uint64(0)) << j;
+			uint64 e = 0; for (size_t j = 0; j < VSIZE; ++j) e |= ((mpz_tstbit(exponent[j], mp_bitcnt_t(i)) != 0) ? uint64(1) : uint64(0)) << j;
 			t->squareDup(e);
 
 			if ((i % B_GL == 0) && (i / B_GL != 0))
@@ -152,20 +150,20 @@ private:
 		}
 		t->copy(1, 0);
 
-		mpz_t res[VSIZE_MAX];
+		std::array<mpz_t, VSIZE> res;
 		i0 = 0;
 		mpz_t e, tmp; mpz_init(e); mpz_init(tmp);
-		for (size_t j = 0; j < VSIZE_MAX; ++j)
+		for (size_t j = 0; j < VSIZE; ++j)
 		{
 			mpz_init_set_ui(res[j], 0);
 			mpz_set(e, exponent[j]);
 			while (mpz_sgn(e) != 0)
 			{
-				mpz_mod_2exp(tmp, e, static_cast<unsigned long int>(B_GL));
+				mpz_mod_2exp(tmp, e, B_GL);
 				mpz_add(res[j], res[j], tmp);
-				mpz_div_2exp(e, e, static_cast<unsigned long int>(B_GL));
+				mpz_div_2exp(e, e, B_GL);
 			}
-			i0 = std::max(i0, static_cast<int>(mpz_sizeinbase(res[j], 2) - 1));
+			i0 = std::max(i0, int(mpz_sizeinbase(res[j], 2) - 1));
 		}
 		mpz_clear(e); mpz_clear(tmp);
 
@@ -173,19 +171,19 @@ private:
 		t->set(1);
 		for (int i = i0; i >= 0; --i)
 		{
-			uint64 e = 0; for (size_t j = 0; j < VSIZE_MAX; ++j) e |= ((mpz_tstbit(res[j], mp_bitcnt_t(i)) != 0) ? uint64(1) : uint64(0)) << j;
+			uint64 e = 0; for (size_t j = 0; j < VSIZE; ++j) e |= ((mpz_tstbit(res[j], mp_bitcnt_t(i)) != 0) ? uint64(1) : uint64(0)) << j;
 			t->squareDup(e);
 		}
 
-		for (size_t j = 0; j < VSIZE_MAX; ++j) mpz_clear(res[j]);
-		for (size_t j = 0; j < VSIZE_MAX; ++j) mpz_clear(exponent[j]);
+		for (size_t j = 0; j < VSIZE; ++j) mpz_clear(res[j]);
+		for (size_t j = 0; j < VSIZE; ++j) mpz_clear(exponent[j]);
 
 		// d(t)^{2^B} * 2^res
 		t->mul();
 
-		bool isPrime[VSIZE_MAX];
-		uint64_t r[VSIZE_MAX], r64[VSIZE_MAX];
-		const bool err = t->isPrime(isPrime, r, r64);
+		std::array<bool, VSIZE> isPrime;
+		std::array<uint64_t, VSIZE> r, r64;
+		const bool err = t->isPrime(isPrime.data(), r.data(), r64.data());
 
 		if (err) throw std::runtime_error("Computation failed");
 
@@ -200,7 +198,7 @@ private:
 		if (!success) throw std::runtime_error("Gerbicz failed");
 
 		std::ostringstream ssr;
-		for (size_t i = 0; i < VSIZE_MAX; ++i)
+		for (size_t i = 0; i < VSIZE; ++i)
 		{
 			if ((i > 0) && (b[i] == b[i - 1])) continue;
 
@@ -229,23 +227,10 @@ private:
 
 		vint32 b;
 		size_t i = 0;
-		int lgb = 0;
 		std::string line;
 		while (std::getline(inFile, line))
 		{
 			const uint32_t u = std::stoi(line);
-			if (i == 0) lgb = ilog2(u);
-			else if (ilog2(u) != lgb)
-			{
-				while (i != vsize)
-				{
-					b[i] = b[i - 1];
-					++i;
-				}
-				bVec.push_back(b);
-				i = 0;
-				lgb = ilog2(u);
-			}
 			b[i] = u;
 			++i;
 			if (i == vsize)
@@ -271,29 +256,28 @@ public:
 	bool checkFile(const std::string & filename, const bool display)
 	{
 		const std::string ctxFilename = filename + std::string(".ctx");
-		size_t i0 = 0, vsize = 0, csize = 0;
-		bool radix16 = true;
+		size_t i0 = 0, csize = 0;
 		std::ifstream ctxFile(ctxFilename);
 		if (ctxFile.is_open())
 		{
 			ctxFile >> i0;
-			ctxFile >> vsize;
+			size_t vsize; ctxFile >> vsize;
 			ctxFile >> csize;
-			int r; ctxFile >> r; // radix16 = (r != 0);
+			int radix16; ctxFile >> radix16;
 			ctxFile.close();
 
 			std::cout << "Resuming from a checkpoint." << std::endl;
 		}
 
-		createTransform(vsize, csize, radix16);
-		vsize = VSIZE_MAX; csize = _transform->getCsize();
+		createTransform(csize);
+		csize = _transform->get_csize();
 
 		std::vector<vint32> bVec;
-		parseFile(filename, bVec, vsize);
+		parseFile(filename, bVec, VSIZE);
 		const size_t n = bVec.size();
 
 		std::ostringstream ss;
-		ss << "Testing " << n * vsize << " candidates, starting at vector #" << i0 << std::endl << std::endl;
+		ss << "Testing " << n * VSIZE << " candidates, starting at vector #" << i0 << std::endl << std::endl;
 		pio::print(ss.str());
 
 		if (_isBoinc) boinc_fraction_done(double(i0) / double(n));
@@ -311,7 +295,7 @@ public:
 			std::ofstream ctxFile(ctxFilename);
 			if (ctxFile.is_open())
 			{
-				ctxFile << i + 1 << " " << vsize << " " << csize << " " << (radix16 ? "1" : "0") << std::endl;
+				ctxFile << i + 1 << " " << VSIZE << " " << csize << " 1" << std::endl;
 				ctxFile.close();
 			}
 
