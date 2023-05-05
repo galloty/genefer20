@@ -1,27 +1,22 @@
 CC = g++ -m64 -std=c++17
-RM = rm -rf
-CFLAGS = -Wall -Wextra -fexceptions
-CLFLAGS = -O3
+FLAGS = -O3 -Wall -Wextra -Wsign-conversion -ffinite-math-only -DBOINC
 
 BIN_DIR = bin
 SRC_DIR = src
 
-OCl_INC = -I Khronos
+OCL_INC = -IKhronos
 OCL_LIB = -lOpenCL
 
-EXEC = $(BIN_DIR)/genefer20
+BOINC_DIR = ../boinc
+BOINC_INC = -I$(BOINC_DIR) -I$(BOINC_DIR)/api -I$(BOINC_DIR)/lib
+BOINC_LIB_DIR = $(BOINC_DIR)/lib_linux64
+BOINC_LIB = -L$(BOINC_DIR)/api -L$(BOINC_DIR)/lib -lboinc_api -lboinc -Wl,--whole-archive -lpthread -Wl,--no-whole-archive -lboinc_opencl
 
-OBJS = $(SRC_DIR)/main.o
+EXEC = $(BIN_DIR)/genefer20
+SRC = $(SRC_DIR)/main.cpp
 
 build: $(EXEC)
 
-clean:
-	$(RM) $(EXEC)
-
-$(EXEC): clean $(OBJS)
-	$(CC) $(OBJS) $(CLFLAGS) $(OCL_LIB) -lpthread -static-libstdc++ -static-libgcc -o $@
-	$(RM) $(OBJS)
-
-.cpp.o:
-	$(CC) $(CFLAGS) $(CLFLAGS) $(OCl_INC) -c $< -o $@
+$(EXEC): $(SRC)
+	$(CC) $^ -lgmp $(FLAGS) -I$(SRC_DIR) $(BOINC_INC) $(OCL_INC) $(BOINC_LIB) $(OCL_LIB) -lpthread -static-libstdc++ -static-libgcc -o $@
 

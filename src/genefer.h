@@ -147,6 +147,7 @@ private:
 			if (_isBoinc) boincMonitor();
 			if (_quit) return false;
 
+			// if (i == i0 / 2) e = e ^ 1;	// => invalid
 			t->squareDup(get_bitcnt(size_t(i), exponent.data()));
 
 			if ((i % B_GL == 0) && (i / B_GL != 0))
