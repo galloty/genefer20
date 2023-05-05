@@ -10,6 +10,10 @@ Please give feedback to the authors if improvement is realized. It is distribute
 #include "genefer.h"
 #include "boinc.h"
 
+#if defined(BOINC)
+#include "version.h"
+#endif
+
 #include <cstdlib>
 #include <stdexcept>
 #include <vector>
@@ -122,9 +126,8 @@ private:
 		ss << "  -n <n>                  GFN exponent (b^{2^n} + 1) " << std::endl;
 		ss << "  -f <filename>           input text file (one b per line)" << std::endl;
 		ss << "  -d <n> or --device <n>  set device number=<n> (default 0)" << std::endl;
-		ss << "  -p                      display results on the screen (default false)" << std::endl;
 		ss << "  -v or -V                print the startup banner and immediately exit" << std::endl;
-#ifdef BOINC
+#if defined(BOINC)
 		ss << "  -boinc                  operate as a BOINC client app" << std::endl;
 #endif
 		ss << std::endl;
@@ -138,7 +141,7 @@ public:
 		for (int i = 1; i < argc; ++i) args.push_back(argv[i]);
 
 		bool bBoinc = false;
-#ifdef BOINC
+#if defined(BOINC)
 		for (const std::string & arg : args) if (arg == "-boinc") bBoinc = true;
 #endif
 		pio::getInstance().setBoinc(bBoinc);
@@ -157,7 +160,7 @@ public:
 				std::ostringstream ss; ss << "boinc_init returned " << retval;
 				throw std::runtime_error(ss.str());
 			}
-#ifdef BOINC
+#if defined(BOINC)
 			if (!boinc_is_standalone())
 			{
 				const int err = boinc_get_opencl_ids(argc, argv, 0, &boinc_device_id, &boinc_platform_id);
@@ -188,12 +191,11 @@ public:
 		ocl::platform platform;
 		if (platform.displayDevices() == 0) throw std::runtime_error("No OpenCL device");
 
-		// if (args.empty()) return;
+		if (args.empty()) return;
 
 		size_t d = 0;
-		int n = 10;
-		std::string filename = "GFN10.txt";	// test
-		bool display = false;
+		int n = 0;	// 10;
+		std::string filename;	// = "GFN10.txt";	// test
 		// parse args
 		for (size_t i = 0, size = args.size(); i < size; ++i)
 		{
@@ -213,16 +215,15 @@ public:
 			else if (arg.substr(0, 2) == "-d")
 			{
 				const std::string dev = ((arg == "-d") && (i + 1 < size)) ? args[++i] : arg.substr(2);
-				d = std::atoi(dev.c_str());
+				d = size_t(std::atoi(dev.c_str()));
 				if (d >= platform.getDeviceCount()) throw std::runtime_error("invalid device number");
 			}
 			else if (arg.substr(0, 8) == "--device")
 			{
 				const std::string dev = ((arg == "--device") && (i + 1 < size)) ? args[++i] : arg.substr(8);
-				d = std::atoi(dev.c_str());
+				d = size_t(std::atoi(dev.c_str()));
 				if (d >= platform.getDeviceCount()) throw std::runtime_error("invalid device number");
 			}
-			if (arg == "-p") display = true;
 		}
 
 		if (n == 0) return;
@@ -237,10 +238,10 @@ public:
 		engine eng(eng_platform, eng_d);
 
 		gen.init(n, eng, bBoinc);
-		const bool success = gen.checkFile(filename, display);
+		const bool success = gen.checkFile(filename);
 		gen.release();
 
-		if (success && bBoinc) boinc_finish(EXIT_SUCCESS);
+		if (success && bBoinc) boinc_finish(BOINC_SUCCESS);
 	}
 };
 

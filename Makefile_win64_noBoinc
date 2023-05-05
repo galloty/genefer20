@@ -1,0 +1,16 @@
+CC = g++ -m64 -std=c++17
+FLAGS = -O3 -Wall -Wextra -Wsign-conversion -ffinite-math-only
+
+BIN_DIR = bin
+SRC_DIR = src
+
+OCL_INC = -IKhronos
+OCL_LIB = C:/Windows/System32/OpenCL.dll
+
+EXEC = $(BIN_DIR)/genefer20.exe
+SRC = $(SRC_DIR)/main.cpp
+
+build: $(EXEC)
+
+$(EXEC): $(SRC)
+	$(CC) $^ -lgmp $(FLAGS) -I$(SRC_DIR) $(OCL_INC) $(OCL_LIB) -o $@

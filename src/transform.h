@@ -51,7 +51,7 @@ private:
 	public:
 		Zp() {}
 		explicit Zp(const uint32 n) : _n(n) {}
-		explicit Zp(const int32 i) : _n((i < 0) ? i + p : i) {}
+		explicit Zp(const int32 i) : _n((i < 0) ? p - uint32(-i) : uint32(i)) {}
 
 		uint32 get() const { return _n; }
 
@@ -230,7 +230,9 @@ public:
 	{
 		if (csize == 0)
 		{
-			std::cout << " auto-tuning...\r";
+			std::ostringstream ss; ss << " auto-tuning..." << std::endl;
+			pio::display(ss.str());
+
 			cl_ulong bestTime = cl_ulong(-1);
 			size_t bestCsize = 8;
 
@@ -243,6 +245,7 @@ public:
 				initEngine();
 				init(b);
 				set(1);
+				squareDup(uint64(-1));
 				engine.resetProfiles();
 				const size_t m = 16;
 				uint64 e = 0; for (size_t j = 0; j < VSIZE; ++j) e |= uint64(j % 2) << j;
@@ -250,7 +253,8 @@ public:
 				const cl_ulong time = engine.getProfileTime();
 				releaseEngine();
 
-				std::cout << "csize = " << csize << ", vsize = " << VSIZE << ", " << int64_t(time * 31.0 * size / VSIZE / m * 1e-6) << " ms" << std::endl;
+				std::ostringstream ss; ss << "vsize = " << VSIZE << ", csize = " << csize << ", " << time * 1e-6 / m << " ms" << std::endl;
+				pio::display(ss.str());
 
 				if (time < bestTime)
 				{

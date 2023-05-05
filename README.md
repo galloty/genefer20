@@ -14,5 +14,6 @@ Any number of the form *b*<sup>2<sup>*n*</sup></sup> + 1 such that 2 &le; *b* < 
 
 ## Build
 
-Binaries are generated using *Ubuntu 18.04 amd64, gcc 7.5* on Linux and *MSYS2, gcc 12.2* on Windows.
+Binaries are generated using *Ubuntu 18.04 amd64, gcc 7.5* and *Windows - MSYS2, gcc 12.2*.  
+
 OpenCL SDK is not required. OpenCL header files are included in the project and the application can be linked with the dynamic OpenCL library of the OS.

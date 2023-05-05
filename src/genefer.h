@@ -68,7 +68,7 @@ private:
 	}
 
 public:
-	void init(const uint32_t n, engine & eng, const bool isBoinc)
+	void init(const int n, engine & eng, const bool isBoinc)
 	{
 		this->_n = n;
 		this->_engine = &eng;
@@ -121,7 +121,7 @@ private:
 	}
 
 private:
-	bool check(const vint32 & b, const bool display)
+	bool check(const vint32 & b)
 	{
 		const int n = this->_n;
 		transform * const t = this->_transform;
@@ -139,7 +139,7 @@ private:
 		t->set(1);
 		t->copy(1, 0);	// d(t)
 
-		const size_t L = (size_t(2) << (ilog2_32(uint32_t(i0)) / 2));
+		const int L = 2 << (ilog2_32(uint32_t(i0)) / 2);
 		const int B_GL = int((i0 - 1) / L) + 1;
 
 		for (int i = i0; i >= 0; --i)
@@ -188,9 +188,9 @@ private:
 			mpz_t & e = exponent[j];
 			while (mpz_sgn(e) != 0)
 			{
-				mpz_mod_2exp(tmp, e, B_GL);
+				mpz_mod_2exp(tmp, e, mp_bitcnt_t(B_GL));
 				mpz_add(res, res, tmp);
-				mpz_div_2exp(e, e, B_GL);
+				mpz_div_2exp(e, e, mp_bitcnt_t(B_GL));
 			}
 			mpz_set(e, res);
 			i0 = std::max(i0, int(mpz_sizeinbase(res, 2) - 1));
@@ -242,7 +242,7 @@ private:
 			ssr << std::endl;
 		}
 
-		if (display) pio::display(std::string("\r") + ssr.str());
+		pio::display(std::string("\r") + ssr.str());
 		pio::result(ssr.str());
 		return true;
 	}
@@ -258,7 +258,7 @@ private:
 		std::string line;
 		while (std::getline(inFile, line))
 		{
-			const uint32_t u = std::stoi(line);
+			const uint32_t u = uint32_t(std::stoi(line));
 			b[i] = u;
 			++i;
 			if (i == vsize)
@@ -281,7 +281,7 @@ private:
 	}
 
 public:
-	bool checkFile(const std::string & filename, const bool display)
+	bool checkFile(const std::string & filename)
 	{
 		const std::string ctxFilename = filename + std::string(".ctx");
 		size_t i0 = 0, csize = 0;
@@ -294,7 +294,8 @@ public:
 			int radix16; ctxFile >> radix16;
 			ctxFile.close();
 
-			std::cout << "Resuming from a checkpoint." << std::endl;
+			std::ostringstream ss; ss << "Resuming from a checkpoint." << std::endl;
+			pio::print(ss.str());
 		}
 
 		createTransform(csize);
@@ -305,20 +306,22 @@ public:
 		const size_t n = bVec.size();
 
 		std::ostringstream ss;
-		ss << "Testing " << n * VSIZE << " candidates, starting at vector #" << i0 << std::endl << std::endl;
+		ss << "Testing " << n * VSIZE << " candidates, starting at vector #" << i0 << std::endl;
 		pio::print(ss.str());
 
 		if (_isBoinc) boinc_fraction_done(double(i0) / double(n));
-		if (!display)
+		else
 		{
 			std::ostringstream ss; ss << std::setprecision(3) << " " << (i0 * 100.0 / n) << "% done    \r";
-			std::cout << ss.str();
+			pio::display(ss.str());
 		}
+
+		const auto start = std::chrono::high_resolution_clock::now();
 
 		size_t i;
 		for (i = i0; i < n; ++i)
 		{
-			if (!check(bVec[i], display)) break;
+			if (!check(bVec[i])) break;
 
 			std::ofstream ctxFile(ctxFilename);
 			if (ctxFile.is_open())
@@ -328,14 +331,21 @@ public:
 			}
 
 			if (_isBoinc) boinc_fraction_done(double(i + 1) / double(n));
-			else if (!display)
+			else
 			{
 				std::ostringstream ss; ss << std::setprecision(3) << " " << ((i + 1) * 100.0 / n) << "% done    \r";
-				std::cout << ss.str();
+				pio::display(ss.str());
 			}
 		}
 
-		if (!_isBoinc && !display) std::cout << std::endl;
+		const double elapsedTime = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start).count();
+		uint64_t seconds = uint64_t(elapsedTime), minutes = seconds / 60, hours = minutes / 60;
+		seconds -= minutes * 60; minutes -= hours * 60;
+
+		std::stringstream sst;
+		sst << std::endl << "Test is " << ((i == n) ? "complete" : "terminated") << ", time = " << std::setfill('0') << std::setw(2)
+			<< hours << ':' << std::setw(2) << minutes << ':' << std::setw(2) << seconds << "." << std::endl;
+		pio::print(sst.str());
 
 		if (i == n)
 		{

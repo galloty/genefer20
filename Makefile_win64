@@ -1,0 +1,21 @@
+CC = g++ -m64 -std=c++17
+FLAGS = -O3 -Wall -Wextra -Wsign-conversion -ffinite-math-only -DBOINC
+
+BIN_DIR = bin
+SRC_DIR = src
+
+OCL_INC = -IKhronos
+OCL_LIB = C:/Windows/System32/OpenCL.dll
+
+BOINC_DIR = ../boinc
+BOINC_INC = -I$(BOINC_DIR) -I$(BOINC_DIR)/api -I$(BOINC_DIR)/lib -I$(BOINC_DIR)/win_build
+BOINC_LIB_DIR = $(BOINC_DIR)/lib_win64
+BOINC_LIB = $(BOINC_LIB_DIR)/libboinc_api.a $(BOINC_LIB_DIR)/libboinc.a $(BOINC_LIB_DIR)/libboinc_opencl.a
+
+EXEC = $(BIN_DIR)/genefer20.exe
+SRC = $(SRC_DIR)/main.cpp
+
+build: $(EXEC)
+
+$(EXEC): $(SRC)
+	$(CC) $^ -static -lgmp $(FLAGS) -I$(SRC_DIR) $(BOINC_INC) $(OCL_INC) $(BOINC_LIB) $(OCL_LIB) -o $@
