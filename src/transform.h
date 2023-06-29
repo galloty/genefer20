@@ -325,6 +325,15 @@ public:
 		uint32 * const x = &this->_x[reg * VSIZE * n];
 		const uint32 * const b = this->_b.data();
 
+		for (size_t j = 0; j < n; ++j)
+		{
+			for (size_t i = 0; i < VSIZE; ++i)
+			{
+				const size_t k = j * VSIZE + i;
+				x[k] = reg;
+			}
+		}
+
 		_engine.readMemory_x3(x);
 
 		std::array<int64, VSIZE> f; f.fill(0);

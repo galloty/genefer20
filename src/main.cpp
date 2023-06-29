@@ -101,7 +101,7 @@ private:
 #endif
 
 		std::ostringstream ss;
-		ss << "genefer20 version 2.0.1 (" << sysver << ssc.str() << ")" << std::endl;
+		ss << "genefer20 version 2.0.2 (" << sysver << ssc.str() << ")" << std::endl;
 		ss << "Copyright (c) 2020-23, Yves Gallot" << std::endl;
 		ss << "genefer20 is free source code, under the MIT license." << std::endl;
 		if (nl)
