@@ -10,7 +10,6 @@ Please give feedback to the authors if improvement is realized. It is distribute
 #include "ocl.h"
 #include "transform.h"
 #include "pio.h"
-#include "timer.h"
 
 #include <thread>
 #include <chrono>
@@ -19,6 +18,9 @@ Please give feedback to the authors if improvement is realized. It is distribute
 
 class genefer
 {
+public:
+	enum class EReturn { Success, Failed, Aborted }; 
+
 private:
 	struct deleter { void operator()(const genefer * const p) { delete p; } };
 
@@ -282,7 +284,7 @@ private:
 	}
 
 public:
-	bool checkFile(const std::string & filename)
+	EReturn checkFile(const std::string & filename)
 	{
 		const std::string ctxFilename = filename + std::string(".ctx");
 		size_t i0 = 0, csize = 0;
@@ -351,8 +353,8 @@ public:
 		if (i == n)
 		{
 			if (_isBoinc) boinc_fraction_done(1.0);
-			return true;
+			return EReturn::Success;
 		}
-		return false;
+		return EReturn::Aborted;
 	}
 };

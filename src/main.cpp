@@ -18,7 +18,7 @@ Please give feedback to the authors if improvement is realized. It is distribute
 #include <stdexcept>
 #include <vector>
 
-#if defined (_WIN32)
+#if defined(_WIN32)
 #include <Windows.h>
 #else
 #include <signal.h>
@@ -36,7 +36,7 @@ private:
 	}
 
 private:
-#if defined (_WIN32)
+#if defined(_WIN32)
 	static BOOL WINAPI HandlerRoutine(DWORD)
 	{
 		quit(1);
@@ -47,7 +47,7 @@ private:
 public:
 	application()
 	{
-#if defined (_WIN32)	
+#if defined(_WIN32)	
 		SetConsoleCtrlHandler(HandlerRoutine, TRUE);
 #else
 		signal(SIGTERM, quit);
@@ -160,25 +160,14 @@ public:
 				std::ostringstream ss; ss << "boinc_init returned " << retval;
 				throw std::runtime_error(ss.str());
 			}
-#if defined(BOINC)
-			if (!boinc_is_standalone())
-			{
-				const int err = boinc_get_opencl_ids(argc, argv, 0, &boinc_device_id, &boinc_platform_id);
-				if ((err != 0) || (boinc_device_id == 0) || (boinc_platform_id == 0))
-				{
-					std::ostringstream ss; ss << std::endl << "error: boinc_get_opencl_ids() failed err = " << err;
-					throw std::runtime_error(ss.str());
-				}
-			}
-#endif
 		}
 
-		// if -v or -V then print header to stderr and exit
+		// if -v or -V then print header and exit
 		for (const std::string & arg : args)
 		{
 			if ((arg[0] == '-') && ((arg[1] == 'v') || (arg[1] == 'V')))
 			{
-				pio::error(header(args));
+				pio::print(header(args));
 				if (bBoinc) boinc_finish(EXIT_SUCCESS);
 				return;
 			}
@@ -196,6 +185,9 @@ public:
 		size_t d = 0;
 		int n = 0;	// 10;
 		std::string filename;	// = "GFN10.txt";	// test
+#if defined(BOINC)
+		bool ext_device = false;
+#endif
 		// parse args
 		for (size_t i = 0, size = args.size(); i < size; ++i)
 		{
@@ -216,6 +208,9 @@ public:
 			{
 				const std::string dev = ((arg == "-d") && (i + 1 < size)) ? args[++i] : arg.substr(2);
 				d = size_t(std::atoi(dev.c_str()));
+#if defined(BOINC)
+				ext_device = true;
+#endif
 				if (d >= platform.getDeviceCount()) throw std::runtime_error("invalid device number");
 			}
 			else if (arg.substr(0, 8) == "--device")
@@ -223,30 +218,50 @@ public:
 				const std::string dev = ((arg == "--device") && (i + 1 < size)) ? args[++i] : arg.substr(8);
 				d = size_t(std::atoi(dev.c_str()));
 				if (d >= platform.getDeviceCount()) throw std::runtime_error("invalid device number");
+#if defined(BOINC)
+				ext_device = true;
+#endif
 			}
 		}
 
 		if (n == 0) return;
 		if (filename.empty()) return;
 
+#if defined(BOINC)
+		if (bBoinc && !boinc_is_standalone() && !ext_device)
+		{
+			const int err = boinc_get_opencl_ids(argc, argv, 0, &boinc_device_id, &boinc_platform_id);
+			if ((err != 0) || (boinc_device_id == 0) || (boinc_platform_id == 0))
+			{
+				std::ostringstream ss; ss << std::endl << "error: boinc_get_opencl_ids() failed err = " << err;
+				throw std::runtime_error(ss.str());
+			}
+		}
+#endif
 		genefer & gen = genefer::getInstance();
 		gen.setBoinc(bBoinc);
 
 		const bool is_boinc_platform = bBoinc && (boinc_device_id != 0) && (boinc_platform_id != 0);
 		const ocl::platform eng_platform = is_boinc_platform ? ocl::platform(boinc_platform_id, boinc_device_id) : platform;
 		const size_t eng_d = is_boinc_platform ? 0 : d;
-		engine eng(eng_platform, eng_d);
+		engine eng(eng_platform, eng_d, true);
 
 		gen.init(n, eng, bBoinc);
-		const bool success = gen.checkFile(filename);
+		const genefer::EReturn ret = gen.checkFile(filename);
 		gen.release();
 
-		if (success && bBoinc) boinc_finish(BOINC_SUCCESS);
+		if (bBoinc)
+		{
+			if (ret == genefer::EReturn::Success) boinc_finish(BOINC_SUCCESS);
+			if (ret == genefer::EReturn::Failed) boinc_finish(EXIT_CHILD_FAILED);
+		}
 	}
 };
 
 int main(int argc, char * argv[])
 {
+	std::setvbuf(stderr, nullptr, _IONBF, 0);	// no buffer
+
 	try
 	{
 		application & app = application::getInstance();
@@ -254,8 +269,7 @@ int main(int argc, char * argv[])
 	}
 	catch (const std::runtime_error & e)
 	{
-		std::ostringstream ss; ss << std::endl << "error: " << e.what() << "." << std::endl;
-		pio::error(ss.str(), true);
+		pio::error(e.what(), true);
 		return EXIT_FAILURE;
 	}
 

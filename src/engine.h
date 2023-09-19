@@ -34,13 +34,13 @@ private:
 	cl_kernel _normalize1 = nullptr, _normalize2 = nullptr;
 
 public:
-	engine(const ocl::platform & platform, const size_t d) : ocl::device(platform, d) {}
+	engine(const ocl::platform & platform, const size_t d, const bool verbose) : ocl::device(platform, d, verbose) {}
 	virtual ~engine() {}
 
 public:
 	void allocMemory(const size_t size, const size_t csize)
 	{
-#if defined (ocl_debug)
+#if defined(ocl_debug)
 		std::ostringstream ss; ss << "Alloc gpu memory." << std::endl;
 		pio::display(ss.str());
 #endif
@@ -62,7 +62,7 @@ public:
 public:
 	void releaseMemory()
 	{
-#if defined (ocl_debug)
+#if defined(ocl_debug)
 		std::ostringstream ss; ss << "Free gpu memory." << std::endl;
 		pio::display(ss.str());
 #endif
@@ -118,7 +118,7 @@ private:
 public:
 	void createKernels()
 	{
-#if defined (ocl_debug)
+#if defined(ocl_debug)
 		std::ostringstream ss; ss << "Create ocl kernels." << std::endl;
 		pio::display(ss.str());
 #endif
@@ -146,7 +146,7 @@ public:
 public:
 	void releaseKernels()
 	{
-#if defined (ocl_debug)
+#if defined(ocl_debug)
 		std::ostringstream ss; ss << "Release ocl kernels." << std::endl;
 		pio::display(ss.str());
 #endif

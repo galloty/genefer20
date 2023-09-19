@@ -57,7 +57,8 @@ private:
 	// error: normal: stderr, boinc: stderr
 	void _error(const std::string & str, const bool fatal) const
 	{
-		std::cerr << str << std::flush;
+		if (fatal) std::cerr << std::endl;
+		std::cerr << "Error: " << str << "." << std::endl << std::flush;
 		if (fatal)
 		{
 			if (_isBoinc)
@@ -74,7 +75,7 @@ private:
 	}
 
 private:
-	// result: normal: 'presults.txt' file, boinc: 'out' file
+	// result: normal: 'gresults.txt' file, boinc: 'out' file
 	bool _result(const std::string & str) const
 	{
 		if (_isBoinc)
