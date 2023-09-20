@@ -178,7 +178,7 @@ public:
 		if (args.empty()) pio::print(usage());	// print usage, display devices and exit
 
 		ocl::platform platform;
-		if (platform.displayDevices() == 0) throw std::runtime_error("No OpenCL device");
+		if (platform.displayDevices() == 0) throw std::runtime_error("no OpenCL device");
 
 		if (args.empty()) return;
 
@@ -233,28 +233,32 @@ public:
 			const int err = boinc_get_opencl_ids(argc, argv, 0, &boinc_device_id, &boinc_platform_id);
 			if ((err != 0) || (boinc_device_id == 0) || (boinc_platform_id == 0))
 			{
-				std::ostringstream ss; ss << std::endl << "error: boinc_get_opencl_ids() failed err = " << err;
+				std::ostringstream ss; ss << std::endl << "boinc_get_opencl_ids() failed err = " << err;
 				throw std::runtime_error(ss.str());
 			}
 		}
 #endif
-		genefer & gen = genefer::getInstance();
-		gen.setBoinc(bBoinc);
+		genefer & g = genefer::getInstance();
+		g.setBoinc(bBoinc);
 
 		const bool is_boinc_platform = bBoinc && (boinc_device_id != 0) && (boinc_platform_id != 0);
 		const ocl::platform eng_platform = is_boinc_platform ? ocl::platform(boinc_platform_id, boinc_device_id) : platform;
 		const size_t eng_d = is_boinc_platform ? 0 : d;
 		engine eng(eng_platform, eng_d, true);
 
-		gen.init(n, eng, bBoinc);
-		const genefer::EReturn ret = gen.checkFile(filename);
-		gen.release();
+		g.init(n, eng, bBoinc);
+		double elapsedTime = 0; const bool success = g.check(filename, elapsedTime);
+		g.release();
 
-		if (bBoinc)
-		{
-			if (ret == genefer::EReturn::Success) boinc_finish(BOINC_SUCCESS);
-			if (ret == genefer::EReturn::Failed) boinc_finish(EXIT_CHILD_FAILED);
-		}
+		uint64_t seconds = uint64_t(elapsedTime), minutes = seconds / 60, hours = minutes / 60;
+		seconds -= minutes * 60; minutes -= hours * 60;
+
+		std::stringstream sst;
+		sst << "Test is " << (success ? "complete" : "aborted") << ", time = " << std::setfill('0') << std::setw(2)
+			<< hours << ':' << std::setw(2) << minutes << ':' << std::setw(2) << seconds << "." << std::endl;
+		pio::print(sst.str());
+
+		if (bBoinc && success) boinc_finish(BOINC_SUCCESS);
 	}
 };
 

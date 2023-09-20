@@ -108,7 +108,7 @@ protected:
 		if (!oclError(res))
 		{
 			std::ostringstream ss; ss << "opencl error: " << errorString(res);
-			throw std::runtime_error(ss.str());
+			pio::error(ss.str(), true);
 		}
 	}
 };

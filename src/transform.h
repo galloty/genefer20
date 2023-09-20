@@ -270,8 +270,7 @@ public:
 			this->_csize = csize;
 		}
 
-		std::ostringstream ss;
-		ss << "Chunk size = " << this->_csize << std::endl << std::endl;
+		std::ostringstream ss; ss << "Chunk size = " << this->_csize << std::endl << std::endl;
 		pio::print(ss.str());
 
 		engine.setProfiling(false);
