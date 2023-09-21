@@ -11,8 +11,10 @@ Please give feedback to the authors if improvement is realized. It is distribute
 #include "transform.h"
 #include "pio.h"
 #include "timer.h"
+#include "file.h"
 
 #include <thread>
+#include <sys/stat.h>
 
 #include <gmp.h>
 
@@ -126,13 +128,71 @@ private:
 	static void clearline() { pio::display("                                                \r"); }
 
 private:
-	bool readContext(const std::string & ctxFilename, int & i, double & elapsedTime)
+	int _readContext(const std::string & filename, int & i, double & elapsedTime)
 	{
-		return false;
+		file contextFile(filename);
+		if (!contextFile.exists()) return -1;
+
+		int version = 0;
+		if (!contextFile.read(reinterpret_cast<char *>(&version), sizeof(version))) return -2;
+		if (version != 1) return -2;
+		if (!contextFile.read(reinterpret_cast<char *>(&i), sizeof(i))) return -2;
+		if (!contextFile.read(reinterpret_cast<char *>(&elapsedTime), sizeof(elapsedTime))) return -2;
+		if (!_transform->readContext(contextFile)) return -2;
+		if (!contextFile.check_crc32()) return -2;
+		return 0;
 	}
 
-	void saveContext(const std::string & ctxFilename, const int i, const double elapsedTime) const
+	bool readContext(const std::string & ctxFile, int & i, double & elapsedTime)
 	{
+		int error = _readContext(ctxFile, i, elapsedTime);
+		if (error < -1)
+		{
+			std::ostringstream ss; ss << ctxFile << ": invalid context";
+			pio::error(ss.str());
+		}
+
+		const std::string oldCtxFile = ctxFile + ".old";
+		if (error < 0)
+		{
+			error = _readContext(oldCtxFile, i, elapsedTime);
+			if (error < -1)
+			{
+				std::ostringstream ss; ss << oldCtxFile << ": invalid context";
+				pio::error(ss.str());
+			}
+		}
+		return (error == 0);
+	}
+
+	void saveContext(const std::string & ctxFile, const int i, const double elapsedTime) const
+	{
+		const std::string oldCtxFile = ctxFile + ".old", newCtxFile = ctxFile + ".new";
+
+		{
+			file contextFile(newCtxFile, "wb", false);
+			int version = 1;
+			if (!contextFile.write(reinterpret_cast<const char *>(&version), sizeof(version))) return;
+			if (!contextFile.write(reinterpret_cast<const char *>(&i), sizeof(i))) return;
+			if (!contextFile.write(reinterpret_cast<const char *>(&elapsedTime), sizeof(elapsedTime))) return;
+			_transform->saveContext(contextFile);
+			contextFile.write_crc32();
+		}
+
+		std::remove(oldCtxFile.c_str());
+
+		struct stat s;
+		if ((stat(ctxFile.c_str(), &s) == 0) && (std::rename(ctxFile.c_str(), oldCtxFile.c_str()) != 0))	// file exists and cannot rename it
+		{
+			pio::error("cannot save context");
+			return;
+		}
+
+		if (std::rename(newCtxFile.c_str(), ctxFile.c_str()) != 0)
+		{
+			pio::error("cannot save context");
+			return;
+		}
 	}
 
 private:
@@ -258,35 +318,41 @@ public:
 
 		watch chrono(found ? restoredTime : 0);
 		const int i_start = found ? ri : i0;
-		initPrintProgress(i0, i_start);
 
-		for (int i = i_start; i >= 0; --i)
+		if (i_start >= 0)
 		{
-			if (_isBoinc) boincMonitor(ctxFilename, i, chrono);
+			initPrintProgress(i0, i_start);
 
-			if (_quit)
+			for (int i = i_start; i >= 0; --i)
 			{
-				saveContext(ctxFilename, i, chrono.getElapsedTime());
-				return false;
+				if (_isBoinc) boincMonitor(ctxFilename, i, chrono);
+
+				if (_quit)
+				{
+					saveContext(ctxFilename, i, chrono.getElapsedTime());
+					return false;
+				}
+
+				if (i % B_GL == 0)
+				{
+					chrono.read(); const double displayTime = chrono.getDisplayTime();
+					if (displayTime >= 1) { printProgress(displayTime, i); chrono.resetDisplayTime(); }
+					if (!_isBoinc && (chrono.getRecordTime() > 600)) { saveContext(ctxFilename, i, chrono.getElapsedTime()); chrono.resetRecordTime(); }
+				}
+
+				// if (i == i0 / 2) e = e ^ 1;	// => invalid
+				pTransform->squareDup(get_bitcnt(size_t(i), exponent.data()));
+
+				if ((i % B_GL == 0) && (i / B_GL != 0))
+				{
+					pTransform->copy(2, 0);
+					pTransform->mul();	// d(t)
+					pTransform->copy(1, 0);
+					pTransform->copy(0, 2);
+				}
 			}
 
-			if (i % B_GL == 0)
-			{
-				chrono.read(); const double displayTime = chrono.getDisplayTime();
-				if (displayTime >= 1) { printProgress(displayTime, i); chrono.resetDisplayTime(); }
-				if (!_isBoinc && (chrono.getRecordTime() > 600)) { saveContext(ctxFilename, i, chrono.getElapsedTime()); chrono.resetRecordTime(); }
-			}
-
-			// if (i == i0 / 2) e = e ^ 1;	// => invalid
-			pTransform->squareDup(get_bitcnt(size_t(i), exponent.data()));
-
-			if ((i % B_GL == 0) && (i / B_GL != 0))
-			{
-				pTransform->copy(2, 0);
-				pTransform->mul();	// d(t)
-				pTransform->copy(1, 0);
-				pTransform->copy(0, 2);
-			}
+			if (chrono.getElapsedTime() > 60) saveContext(ctxFilename, -1, chrono.getElapsedTime());
 		}
 
 		// get result
@@ -320,24 +386,22 @@ public:
 
 		// 2^res * d(t)^{2^B}
 		pTransform->set(1);
-		for (int j = 1; j <= i0 + 1 - B_GL; ++j)
+		for (int i = i0; i >= B_GL; --i)
 		{
 			if (_isBoinc) boincMonitor();
 			if (_quit) return false;
 
-			int i = i0 + 1 - j;
 			pTransform->squareDup(get_bitcnt(size_t(i), exponent.data()));
 		}
 
 		pTransform->mul();
 
-		for (int j = i0 + 1 - B_GL + 1; j <= i0 + 1; ++j)
+		for (int i = B_GL - 1; i >= 0; --i)
 		{
 			if (_isBoinc) boincMonitor();
 			if (_quit) return false;
 
-			int i = i0 + 1 - j;
-			const uint64_t bitcnt = (j > 0) ? get_bitcnt(size_t(i), exponent.data()) : 0;
+			const uint64_t bitcnt = (i <= i0) ? get_bitcnt(size_t(i), exponent.data()) : 0;
 			pTransform->squareDup(bitcnt);
 		}
 

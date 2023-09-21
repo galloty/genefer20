@@ -174,8 +174,22 @@ public:
 		_writeBuffer(_bs, bs, sizeof(int32) * VSIZE);
 	}
 
+	void writeMemory_x123(const uint32_2 * const x12, const uint32 * const x3, const size_t num_regs)
+	{
+		const size_t size = num_regs * this->_vnsize;
+		_writeBuffer(_x12, x12, sizeof(uint32_2) * size);
+		_writeBuffer(_x3, x3, sizeof(uint32) * size);
+	}
+
 public:
 	void readMemory_x3(uint32 * const x3) { _readBuffer(_x3, x3, sizeof(uint32) * this->_vnsize); }
+
+	void readMemory_x123(uint32_2 * const x12, uint32 * const x3, const size_t num_regs)
+	{
+		const size_t size = num_regs * this->_vnsize;
+		_readBuffer(_x12, x12, sizeof(uint32_2) * size);
+		_readBuffer(_x3, x3, sizeof(uint32) * size);
+	}
 
 public:
 	void set(const uint32 a)
@@ -213,13 +227,13 @@ private:
 		_setKernelArg(kernel, 6, sizeof(int32), &lm);
 	}
 
-	void forward4(const uint32 s, const int32 lm)
-	{
-		set_sm_args(_forward4, s, lm);
-		const uint32 reg0 = 0;
-		_setKernelArg(_forward4, 7, sizeof(uint32), &reg0);
-		_executeKernel(_forward4, this->_vnsize / 4);
-	}
+	// void forward4(const uint32 s, const int32 lm)
+	// {
+	// 	set_sm_args(_forward4, s, lm);
+	// 	const uint32 reg0 = 0;
+	// 	_setKernelArg(_forward4, 7, sizeof(uint32), &reg0);
+	// 	_executeKernel(_forward4, this->_vnsize / 4);
+	// }
 
 	void forward16(const uint32 s, const int32 lm)
 	{

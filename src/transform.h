@@ -9,6 +9,7 @@ Please give feedback to the authors if improvement is realized. It is distribute
 
 #include "engine.h"
 #include "pio.h"
+#include "file.h"
 
 #include <cstdint>
 #include <cmath>
@@ -93,7 +94,7 @@ private:
 	const int32 _ln;
 	const bool _isBoinc;
 	engine & _engine;
-	uint32 * const _x;
+	std::vector<uint32> _x;
 	size_t _csize = 0;
 	vint32 _b;
 
@@ -226,7 +227,7 @@ private:
 
 public:
 	transform(const size_t size, engine & engine, const bool isBoinc, const size_t csize) :
-		_n(size), _ln(ilog2_32(uint32_t(size))), _isBoinc(isBoinc), _engine(engine), _x(new uint32[3 * VSIZE * size])
+		_n(size), _ln(ilog2_32(uint32_t(size))), _isBoinc(isBoinc), _engine(engine), _x(3 * VSIZE * size)
 	{
 		if (csize == 0)
 		{
@@ -281,12 +282,37 @@ public:
 	virtual ~transform()
 	{
 		releaseEngine();
-
-		delete[] _x;
 	}
 
 public:
 	size_t get_csize() const { return this->_csize; }
+
+public:
+	bool readContext(file & cFile)
+	{
+		const size_t num_regs = 2, size = num_regs * VSIZE * this->_n;
+
+		std::vector<uint32_2> x12(size);
+		if (!cFile.read(reinterpret_cast<char *>(x12.data()), sizeof(uint32_2) * size)) return false;
+		std::vector<uint32> x3(size);
+		if (!cFile.read(reinterpret_cast<char *>(x3.data()), sizeof(uint32) * size)) return false;
+
+		_engine.writeMemory_x123(x12.data(), x3.data(), num_regs);
+		return true;
+	}
+
+	void saveContext(file & cFile) const
+	{
+		const size_t num_regs = 2, size = num_regs * VSIZE * this->_n;
+
+		std::vector<uint32_2> x12(size);
+		std::vector<uint32> x3(size);
+		_engine.readMemory_x123(x12.data(), x3.data(), num_regs);
+
+		if (!cFile.write(reinterpret_cast<const char *>(x12.data()), sizeof(uint32_2) * size)) return;
+		if (!cFile.write(reinterpret_cast<const char *>(x3.data()), sizeof(uint32) * size)) return;
+	}
+
 
 public:
 	void init(const vint32 & b)
@@ -318,10 +344,10 @@ private:
 	}
 
 public:
-	void getInt(const uint32 reg) const
+	void getInt(const uint32 reg)
 	{
 		const size_t n = this->_n;
-		uint32 * const x = &this->_x[reg * VSIZE * n];
+		uint32 * const x = &(this->_x.data()[reg * VSIZE * n]);
 		const uint32 * const b = this->_b.data();
 
 		for (size_t j = 0; j < n; ++j)
@@ -371,7 +397,7 @@ public:
 	bool isPrime(bool * const prm, uint64_t * const res, uint64_t * const res64) const
 	{
 		const size_t n = this->_n;
-		const uint32 * const x = &this->_x[0 * VSIZE * n];
+		const uint32 * const x = &(this->_x.data()[0 * VSIZE * n]);
 		const uint32 * const b = this->_b.data();
 
 		std::array<bool, VSIZE> err; err.fill(false);
@@ -400,8 +426,8 @@ public:
 			{
 				const size_t k = j * VSIZE + i;
 				const uint32 xk = x[k];
-				prm[i] = (prm[i] && (xk == 0));
-				err[i] = (err[i] && (xk == 0));
+				prm[i] &= (xk == 0);
+				err[i] &= (xk == 0);
 				res64[i] += xk * bi[i];
 				bi[i] *= b[i];
 			}
@@ -417,8 +443,8 @@ public:
 	bool GerbiczLiCheck() const
 	{
 		const size_t n = this->_n;
-		uint32 * const y = &this->_x[1 * VSIZE * n];
-		uint32 * const z = &this->_x[2 * VSIZE * n];
+		const uint32 * const y = &(this->_x.data()[1 * VSIZE * n]);
+		const uint32 * const z = &(this->_x.data()[2 * VSIZE * n]);
 
 		bool success = true;
 		for (size_t j = 0; j < n; ++j)
