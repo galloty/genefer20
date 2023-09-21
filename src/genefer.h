@@ -104,25 +104,23 @@ private:
 		if (_isBoinc) boinc_fraction_done((i0 > i_start) ? static_cast<double>(i0 - i_start) / i0 : 0.0);
 	}
 
-	int printProgress(const double displayTime, const int i)
+	void printProgress(const double displayTime, const int i)
 	{
-		if (_print_i == i) return 1;
+		if (_print_i == i) return;
 
-		const double mulTime = displayTime / (_print_i - i); _print_i = i;
 		const double percent = static_cast<double>(_print_range - i) / _print_range;
-		const int dcount = std::max(static_cast<int>(1.0 / mulTime), 2);
 		if (_isBoinc)
 		{
 			boinc_fraction_done(percent);
 		}
 		else
 		{
+			const double mulTime = displayTime / (_print_i - i); _print_i = i;
 			const double estimatedTime = mulTime * i;
 			std::ostringstream ss; ss << std::setprecision(3) << percent * 100.0 << "% done, " << timer::formatTime(estimatedTime)
 									<< " remaining, " << mulTime * 1e3 << " ms/bit.        \r";
 			pio::display(ss.str());
 		}
-		return dcount;
 	}
 
 	static void clearline() { pio::display("                                                \r"); }
@@ -261,7 +259,6 @@ public:
 		watch chrono(found ? restoredTime : 0);
 		const int i_start = found ? ri : i0;
 		initPrintProgress(i0, i_start);
-		int dcount = 100;
 
 		for (int i = i_start; i >= 0; --i)
 		{
@@ -273,10 +270,10 @@ public:
 				return false;
 			}
 
-			if (i % dcount == 0)
+			if (i % B_GL == 0)
 			{
 				chrono.read(); const double displayTime = chrono.getDisplayTime();
-				if (displayTime >= 10) { dcount = printProgress(displayTime, i); chrono.resetDisplayTime(); }
+				if (displayTime >= 1) { printProgress(displayTime, i); chrono.resetDisplayTime(); }
 				if (!_isBoinc && (chrono.getRecordTime() > 600)) { saveContext(ctxFilename, i, chrono.getElapsedTime()); chrono.resetRecordTime(); }
 			}
 
@@ -296,23 +293,13 @@ public:
 		pTransform->getInt(0);
 
 		// Gerbicz-Li error checking
+		clearline(); pio::display("Validating...\r");
 
 		// d(t + 1) = d(t) * result
 		pTransform->copy(2, 1);
 		pTransform->mul();
 		pTransform->copy(1, 2);
 		pTransform->copy(2, 0);
-
-		// d(t)^{2^B}
-		pTransform->copy(0, 1);
-		for (int i = B_GL - 1; i >= 0; --i)
-		{
-			if (_isBoinc) boincMonitor();
-			if (_quit) return false;
-
-			pTransform->squareDup(0);
-		}
-		pTransform->copy(1, 0);
 
 		i0 = 0;
 		mpz_t res, tmp; mpz_init(res); mpz_init(tmp);
@@ -331,20 +318,30 @@ public:
 		}
 		mpz_clear(res); mpz_clear(tmp);
 
-		// 2^res
+		// 2^res * d(t)^{2^B}
 		pTransform->set(1);
-		for (int i = i0; i >= 0; --i)
+		for (int j = 1; j <= i0 + 1 - B_GL; ++j)
 		{
 			if (_isBoinc) boincMonitor();
 			if (_quit) return false;
 
+			int i = i0 + 1 - j;
 			pTransform->squareDup(get_bitcnt(size_t(i), exponent.data()));
 		}
 
-		for (size_t j = 0; j < VSIZE; ++j) mpz_clear(exponent[j]);
-
-		// d(t)^{2^B} * 2^res
 		pTransform->mul();
+
+		for (int j = i0 + 1 - B_GL + 1; j <= i0 + 1; ++j)
+		{
+			if (_isBoinc) boincMonitor();
+			if (_quit) return false;
+
+			int i = i0 + 1 - j;
+			const uint64_t bitcnt = (j > 0) ? get_bitcnt(size_t(i), exponent.data()) : 0;
+			pTransform->squareDup(bitcnt);
+		}
+
+		for (size_t j = 0; j < VSIZE; ++j) mpz_clear(exponent[j]);
 
 		std::array<bool, VSIZE> isPrime;
 		std::array<uint64_t, VSIZE> r, r64;
@@ -383,6 +380,7 @@ public:
 		pio::display(ssr.str());
 
 		if (_isBoinc) boinc_fraction_done(1.0);
+		elapsedTime = chrono.getElapsedTime();
 		return true;
 	}
 };
