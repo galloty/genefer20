@@ -85,6 +85,41 @@ inline uint32 _subMod(const uint32 lhs, const uint32 rhs, const uint32 p)
 	return lhs - rhs + c;
 }
 
+// Peter L. Montgomery, Modular multiplication without trial division, Math. Comp.44 (1985), 519–521.
+
+// The Montgomery REDC algorithm
+inline uint32 REDC(const uint64 t, const uint32 p, const uint32 q)
+{
+	const uint32 mp = mul_hi((uint32)(t) * q, p), t_hi = (uint32)(t >> 32), r = t_hi - mp;
+	return (t_hi < mp) ? r + p : r;
+}
+
+inline uint32 REDCshort(const uint32 t, const uint32 p, const uint32 q)
+{
+	const uint32 mp = mul_hi(t * q, p);
+	return (mp != 0) ? p - mp : 0;
+}
+
+// Montgomery form (lhs, rhs and output): if 0 <= r < p then f is r * 2^32 mod p
+inline uint32 _mulMonty(const uint32 lhs, const uint32 rhs, const uint32 p, const uint32 q)
+{
+	return REDC(lhs * (uint64)(rhs), p, q);
+}
+
+// Conversion into Montgomery form
+inline uint32 _toMonty(const uint32 n, const uint32 r2, const uint32 p, const uint32 q)
+{
+	// n * (2^32)^2 = (n * 2^32) * (1 * 2^32)
+	return _mulMonty(n, r2, p, q);
+}
+
+// Conversion out of Montgomery form
+inline uint32 _fromMonty(const uint32 n, const uint32 p, const uint32 q)
+{
+	// n = REDC(n * 2^32, 1)
+	return REDCshort(n, p, q);
+}
+
 inline uint32 _mulMod(const uint32 lhs, const uint32 rhs, const uint32 p, const uint32 p_inv)
 {
 	// Improved division by invariant integers, Niels Moller and Torbjorn Granlund, Algorithm 4.
@@ -94,12 +129,6 @@ inline uint32 _mulMod(const uint32 lhs, const uint32 rhs, const uint32 p, const 
 	return (r >= p) ? r - p : r;
 }
 
-inline uint32 seti_P1(const int32 i) { return (i < 0) ? (uint32)(i + P1) : (uint32)i; }
-inline uint32 seti_P2(const int32 i) { return (i < 0) ? (uint32)(i + P2) : (uint32)i; }
-inline uint32 seti_P3(const int32 i) { return (i < 0) ? (uint32)(i + P3) : (uint32)i; }
-
-inline int32 geti_P1(const uint32 n) { return (n > P1 / 2) ? (int32)(n - P1) : (int32)n; }
-
 inline uint32 add_P1(const uint32 lhs, const uint32 rhs) { return _addMod(lhs, rhs, P1); }
 inline uint32 add_P2(const uint32 lhs, const uint32 rhs) { return _addMod(lhs, rhs, P2); }
 inline uint32 add_P3(const uint32 lhs, const uint32 rhs) { return _addMod(lhs, rhs, P3); }
@@ -108,26 +137,38 @@ inline uint32 sub_P1(const uint32 lhs, const uint32 rhs) { return _subMod(lhs, r
 inline uint32 sub_P2(const uint32 lhs, const uint32 rhs) { return _subMod(lhs, rhs, P2); }
 inline uint32 sub_P3(const uint32 lhs, const uint32 rhs) { return _subMod(lhs, rhs, P3); }
 
-inline uint32 mul_P1(const uint32 lhs, const uint32 rhs) { return _mulMod(lhs, rhs, P1, P1_INV); }
-inline uint32 mul_P2(const uint32 lhs, const uint32 rhs) { return _mulMod(lhs, rhs, P2, P2_INV); }
-inline uint32 mul_P3(const uint32 lhs, const uint32 rhs) { return _mulMod(lhs, rhs, P3, P3_INV); }
+// Montgomery form
+inline uint32 mul_P1(const uint32 lhs, const uint32 rhs) { return _mulMonty(lhs, rhs, P1, Q1); }
+inline uint32 mul_P2(const uint32 lhs, const uint32 rhs) { return _mulMonty(lhs, rhs, P2, Q2); }
+inline uint32 mul_P3(const uint32 lhs, const uint32 rhs) { return _mulMonty(lhs, rhs, P3, Q3); }
+
+inline uint32 toMonty_P1(const uint32 lhs) { return _toMonty(lhs, R1, P1, Q1); }
+inline uint32 toMonty_P2(const uint32 lhs) { return _toMonty(lhs, R2, P2, Q2); }
+inline uint32 toMonty_P3(const uint32 lhs) { return _toMonty(lhs, R3, P3, Q3); }
+
+inline uint32 fromMonty_P1(const uint32 lhs) { return _fromMonty(lhs, P1, Q1); }
+inline uint32 fromMonty_P2(const uint32 lhs) { return _fromMonty(lhs, P2, Q2); }
+inline uint32 fromMonty_P3(const uint32 lhs) { return _fromMonty(lhs, P3, Q3); }
+
+// Standard residue class
+inline uint32 mul_P1std(const uint32 lhs, const uint32 rhs) { return _mulMod(lhs, rhs, P1, P1_INV); }
+inline uint32 mul_P2std(const uint32 lhs, const uint32 rhs) { return _mulMod(lhs, rhs, P2, P2_INV); }
+
+inline uint32 seti_P1(const int32 i) { return toMonty_P1((i < 0) ? (uint32)(i + P1) : (uint32)i); }
+inline uint32 seti_P2(const int32 i) { return toMonty_P2((i < 0) ? (uint32)(i + P2) : (uint32)i); }
+inline uint32 seti_P3(const int32 i) { return toMonty_P3((i < 0) ? (uint32)(i + P3) : (uint32)i); }
+
+inline int32 geti_P1(const uint32 n) { return (n > P1 / 2) ? (int32)(n - P1) : (int32)n; }
 
 inline uint32_2 add_P12(const uint32_2 lhs, const uint32_2 rhs) { return (uint32_2)(add_P1(lhs.s0, rhs.s0), add_P2(lhs.s1, rhs.s1)); }
 inline uint32_2 sub_P12(const uint32_2 lhs, const uint32_2 rhs) { return (uint32_2)(sub_P1(lhs.s0, rhs.s0), sub_P2(lhs.s1, rhs.s1)); }
 inline uint32_2 mul_P12(const uint32_2 lhs, const uint32_2 rhs) { return (uint32_2)(mul_P1(lhs.s0, rhs.s0), mul_P2(lhs.s1, rhs.s1)); }
 
-inline int64 garner2(const uint32 r1, const uint32 r2)
-{
-	const uint32 u12 = mul_P1(sub_P1(r1, r2), InvP2_P1);
-	const uint64 n = r2 + u12 * (uint64)P2;
-	return (n > P1P2 / 2) ? (int64)(n - P1P2) : (int64)n;
-}
-
 inline static int96 garner3(const uint32 r1, const uint32 r2, const uint32 r3)
 {
-	const uint32 u13 = mul_P1(sub_P1(r1, r3), InvP3_P1);
-	const uint32 u23 = mul_P2(sub_P2(r2, r3), InvP3_P2);
-	const uint32 u123 = mul_P1(sub_P1(u13, u23), InvP2_P1);
+	const uint32 u13 = mul_P1std(sub_P1(r1, r3), InvP3_P1);
+	const uint32 u23 = mul_P2std(sub_P2(r2, r3), InvP3_P2);
+	const uint32 u123 = mul_P1std(sub_P1(u13, u23), InvP2_P1);
 	const uint96 n = uint96_add_64(uint96_mul_64_32(P2P3, u123), u23 * (uint64)P3 + r3);
 	const uint96 P1P2P3 = uint96_set(P1P2P3l, P1P2P3h), P1P2P3_2 = uint96_set(P1P2P3_2l, P1P2P3_2h);
 	const int96 r = uint96_is_greater(n, P1P2P3_2) ? uint96_subi(n, P1P2P3) : uint96_i(n);
@@ -464,9 +505,9 @@ __kernel
 void set(__global uint32_2 * restrict const x12, __global uint32 * restrict const x3, const uint32 a)
 {
 	const sz_t k = (sz_t)get_global_id(0);
-	const uint32 v = (k < VSIZE) ? a : 0;
-	x12[k] = (uint32_2)(v, v);
-	x3[k] = v;
+	uint32 v1 = 0, v2 = 0, v3 = 0;
+	if (k < VSIZE) { v1 = toMonty_P1(a); v2 = toMonty_P2(a); v3 = toMonty_P3(a); }
+	x12[k] = (uint32_2)(v1, v2); x3[k] = v3;
 }
 
 __kernel
@@ -711,12 +752,13 @@ void normalize1(const __global uint32_2 * restrict const bb_inv, const __global 
 	const sz_t i = id % VSIZE, j = id / VSIZE, k0 = j * (VSIZE * CSIZE) + i;
 	const uint32 b = bb_inv[i].s0, b_inv = bb_inv[i].s1;
 	const int32 b_s = bs[i];
+
 	int96 a = int96_set_si(0);
 	for (sz_t c = 0; c < CSIZE; ++c)
 	{
 		const sz_t k = k0 + c * VSIZE;
 		const uint32_2 x12k = x12[k];
-		int96 l = garner3(mul_P1(x12k.s0, NORM1), mul_P2(x12k.s1, NORM2), mul_P3(x3[k], NORM3));
+		int96 l = garner3(fromMonty_P1(mul_P1(x12k.s0, NORM1)), fromMonty_P2(mul_P2(x12k.s1, NORM2)), fromMonty_P3(mul_P3(x3[k], NORM3)));
 		if ((dup & mask64[i]) != 0) l = int96_add(l, l);
 		a = int96_add(a, l);
 		const int32 r = reduce96(&a, b, b_inv, b_s);
@@ -731,16 +773,17 @@ void normalize2(const __global uint32_2 * restrict const bb_inv, const __global 
 {
 	const sz_t id = (sz_t)get_global_id(0);
 	const sz_t i = id % VSIZE, j = (id / VSIZE + 1) & (get_global_size(0) / VSIZE - 1);
-	int64 a = f[id];
 	const uint32 b = bb_inv[i].s0, b_inv = bb_inv[i].s1;
 	const int32 b_s = bs[i];
+	int64 a = f[id];
 	const sz_t k0 = j * (VSIZE * CSIZE) + i;
 	if (j == 0) a = -a;	// a_0 = -a_n
+
 	sz_t c;
 	for (c = 0; c < CSIZE - 1; ++c)
 	{
 		const sz_t k = k0 + c * VSIZE;
-		a += geti_P1(x12[k].s0);
+		a += geti_P1(fromMonty_P1(x12[k].s0));
 		const int32 r = reduce64(&a, b, b_inv, b_s);
 		x12[k] = (uint32_2)(seti_P1(r), seti_P2(r)); x3[k] = seti_P3(r);
 		if (a == 0) return;

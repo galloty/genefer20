@@ -26,52 +26,39 @@ private:
 	static const uint32_t P1 = 4253024257u;			// 507 * 2^23 + 1
 	static const uint32_t P2 = 4194304001u;			// 125 * 2^25 + 1
 	static const uint32_t P3 = 4076863489u;			// 243 * 2^24 + 1
-	static const uint32_t P1_INV = 42356678u;		// (2^64 - 1) / P1 - 2^32
-	static const uint32_t P2_INV = 103079214u;		// (2^64 - 1) / P2 - 2^32
-	static const uint32_t P3_INV = 229771911u;		// (2^64 - 1) / P3 - 2^32
-	static const uint32_t InvP2_P1 = 1822724754u;	// 1 / P2 mod P1
-	static const uint32_t InvP3_P1 = 607574918u;	// 1 / P3 mod P1
-	static const uint32_t InvP3_P2 = 2995931465u;	// 1 / P3 mod P2
 
 private:
-	template <uint32 p, uint32 p_inv, uint32 prmRoot>
+	template <uint32 p, uint32 prRoot>
 	class Zp
 	{
 	private:
 		uint32 _n;
 
 	private:
-		uint32 _mulMod(const uint32 n) const
-		{
-			const uint64 m = _n * uint64(n), q = (m >> 32) * p_inv + m;
-			uint32 r = uint32(m) - (1 + uint32(q >> 32)) * p;
-			if (r > uint32(q)) r += p;
-			return (r >= p) ? r - p : r;
-		}
-	
+		explicit Zp(const uint32 n) : _n(n) {}
+
+		Zp _mulMod(const Zp & rhs) const { return Zp(static_cast<uint32>((_n * uint64(rhs._n)) % p)); }
+
 	public:
 		Zp() {}
-		explicit Zp(const uint32 n) : _n(n) {}
-		explicit Zp(const int32 i) : _n((i < 0) ? p - uint32(-i) : uint32(i)) {}
+		explicit Zp(const int32_t i) : _n((i < 0) ? p - static_cast<uint32>(-i) : static_cast<uint32>(i)) {}
 
 		uint32 get() const { return _n; }
+		int32_t getInt() const { return (_n > p / 2) ? static_cast<int32_t>(_n - p) : static_cast<int32_t>(_n); }
+
+		void set(const uint32 n) { _n = n; }
 
 		Zp operator-() const { return Zp((_n != 0) ? p - _n : 0); }
 
-		Zp operator+(const Zp & rhs) const { const uint32 c = (_n >= p - rhs._n) ? p : 0; return Zp(_n + rhs._n - c); }
-		Zp operator-(const Zp & rhs) const { const uint32 c = (_n < rhs._n) ? p : 0; return Zp(_n - rhs._n + c); }
-		Zp operator*(const Zp & rhs) const { return Zp(_mulMod(rhs._n)); }
+		Zp & operator*=(const Zp & rhs) { *this = _mulMod(rhs); return *this; }
+		Zp operator*(const Zp & rhs) const { return _mulMod(rhs); }
 
-		Zp & operator+=(const Zp & rhs) { *this = *this + rhs; return *this; }
-		Zp & operator-=(const Zp & rhs) { *this = *this - rhs; return *this; }
-		Zp & operator*=(const Zp & rhs) { *this = *this * rhs; return *this; }
-
-		Zp pow(const uint32 e) const
+		Zp pow(const uint32_t e) const
 		{
 			if (e == 0) return Zp(1);
 
 			Zp r = Zp(1), y = *this;
-			for (uint32 i = e; i > 1; i /= 2)
+			for (uint32_t i = e; i != 1; i /= 2)
 			{
 				if (i % 2 != 0) r *= y;
 				y *= y;
@@ -81,13 +68,149 @@ private:
 			return r;
 		}
 
-		static Zp norm(const size_t n) { return -Zp(uint32((p - 1) / n)); }
-		static const Zp prmRoot_n(const size_t n) { return Zp(prmRoot).pow(uint32((p - 1) / n)); }
+		static Zp norm(const uint32_t n) { return -Zp((p - 1) / n); }
+		static const Zp prRoot_n(const uint32_t n) { return Zp(prRoot).pow((p - 1) / n); }
 	};
 
-	typedef Zp<P1, P1_INV, 5> Zp1;
-	typedef Zp<P2, P2_INV, 3> Zp2;
-	typedef Zp<P3, P3_INV, 7> Zp3;
+	// Peter L. Montgomery, Modular multiplication without trial division, Math. Comp.44 (1985), 519–521.
+
+	// Montgomery form: if 0 <= n < p then r is n * 2^32 mod p
+	template <uint32 p>
+	class MForm
+	{
+	private:
+		const uint32 _q;
+		const uint32 _r2;	// (2^32)^2 mod p
+
+	private:
+		// p * p_inv = 1 (mod 2^32) (Newton's method)
+		static constexpr uint32 invert()
+		{
+			uint32 p_inv = 1, prev = 0;
+			while (p_inv != prev) { prev = p_inv; p_inv *= 2 - p * p_inv; }
+			return p_inv;
+		}
+
+		// The Montgomery REDC algorithm
+		constexpr uint32 REDC(const uint64 t) const
+		{
+			const uint32 m = uint32(t) * _q, t_hi = uint32(t >> 32);
+			const uint32 mp = uint32((m * uint64(p)) >> 32), r = t_hi - mp;
+			return (t_hi < mp) ? r + p : r;
+		}
+
+	public:
+		MForm() : _q(invert()), _r2(uint32((((uint64(1) << 32) % p) * ((uint64(1) << 32) % p)) % p)) {}
+
+		constexpr uint32 q() const { return _q; }
+		constexpr uint32 r2() const { return _r2; }
+
+		// Conversion into Montgomery form
+		constexpr uint32 toMonty(const uint32 lhs) const
+		{
+			// n * (2^32)^2 = (n * 2^32) * (1 * 2^32)
+			return REDC(lhs * uint64(_r2));
+		}
+
+		// Conversion out of Montgomery form
+		constexpr uint32 fromMonty(const uint32 lhs) const
+		{
+			// n = REDC(n * 2^32, 1)
+			return REDC(lhs);
+		}
+	};
+
+	typedef Zp<P1, 5> Zp1;
+	typedef Zp<P2, 3> Zp2;
+	typedef Zp<P3, 7> Zp3;
+
+	typedef MForm<P1> MForm1;
+	typedef MForm<P2> MForm2;
+	typedef MForm<P3> MForm3;
+
+	template<class Zp1, class Zp2>
+	class RNS_T
+	{
+	private:
+		uint32_2 r;	// Zp1, Zp2
+
+	private:
+		explicit RNS_T(const Zp1 & n1, const Zp2 & n2) { r.s[0] = n1.get(); r.s[1] = n2.get(); }
+
+	public:
+		RNS_T() {}
+		explicit RNS_T(const int32_t i) { r.s[0] = Zp1(i).get(); r.s[1] = Zp2(i).get(); }
+
+		uint32_2 get() const { return r; }
+		Zp1 r1() const { Zp1 n1; n1.set(r.s[0]); return n1; }
+		Zp2 r2() const { Zp2 n2; n2.set(r.s[1]); return n2; }
+		void set(const uint32 n1, const uint32 n2) { r.s[0] = n1; r.s[1] = n2; }
+
+		RNS_T operator-() const { return RNS_T(-r1(), -r2()); }
+
+		RNS_T pow(const uint32_t e) const { return RNS_T(r1().pow(e), r2().pow(e)); }
+
+		// Conversion into Montgomery form
+		RNS_T toMonty() const
+		{
+			Zp1 n1; n1.set(MForm1().toMonty(r.s[0]));
+			Zp2 n2; n2.set(MForm2().toMonty(r.s[1]));
+			return RNS_T(n1, n2);
+		}
+
+		// Conversion out of Montgomery form
+		RNS_T fromMonty() const
+		{
+			Zp1 n1; n1.set(MForm1().fromMonty(r.s[0]));
+			Zp2 n2; n2.set(MForm2().fromMonty(r.s[1]));
+			return RNS_T(n1, n2);
+		}
+
+		static const RNS_T prRoot_n(const uint32_t n) { return RNS_T(Zp1::prRoot_n(n), Zp2::prRoot_n(n)); }
+	};
+
+	template<class Zp3>
+	class RNSe_T
+	{
+	private:
+		uint32 r;	// Zp3
+
+	private:
+		explicit RNSe_T(const Zp3 & n3) { r = n3.get(); }
+
+	public:
+		RNSe_T() {}
+		explicit RNSe_T(const int32_t i) { r = Zp3(i).get(); }
+
+		uint32 get() const { return r; }
+		Zp3 r3() const { Zp3 n3; n3.set(r); return n3; }
+		void set(const uint32 n3) { r = n3; }
+
+		RNSe_T operator-() const { return RNSe_T(-r3()); }
+
+		RNSe_T operator*(const RNSe_T & rhs) const { return RNSe_T(r3() * rhs.r3()); }
+
+		RNSe_T pow(const uint32_t e) const { return RNSe_T(r3().pow(e)); }
+
+		// Conversion into Montgomery form
+		RNSe_T toMonty() const
+		{
+			Zp3 n3; n3.set(MForm3().toMonty(r));
+			return RNSe_T(n3);
+		}
+
+		// Conversion out of Montgomery form
+		RNSe_T fromMonty() const
+		{
+			Zp3 n3; n3.set(MForm3().fromMonty(r));
+			return RNSe_T(n3);
+		}
+
+		static const RNSe_T prRoot_n(const uint32_t n) { return RNSe_T(Zp3::prRoot_n(n)); }
+	};
+
+	typedef RNS_T<Zp1, Zp2> RNS;
+	typedef RNSe_T<Zp3> RNSe;
 
 private:
 	const size_t _n;
@@ -104,24 +227,6 @@ private:
 		size_t r = 0;
 		for (size_t k = n, j = i; k > 1; k /= 2, j /= 2) r = (2 * r) | (j % 2);
 		return r;
-	}
-
-private:
-	template<typename Zp>
-	static void create(const size_t n, uint32 * const wr, uint32 * const wri)
-	{
-		for (size_t s = 1; s < n; s *= 2)
-		{
-			const size_t m = 4 * s;
-			const Zp prRoot_m = Zp::prmRoot_n(m);
-
-			for (size_t i = 0; i < s; ++i)
-			{
-				const size_t e = bitRev(i, 2 * s) + 1;
-				const Zp wrsi = prRoot_m.pow(e);
-				wr[s + i] = wrsi.get(); wri[s + s - i - 1] = Zp(-wrsi).get();
-			}
-		}
 	}
 
 public:
@@ -180,21 +285,27 @@ private:
 		const size_t csize = this->_csize;
 
 		std::stringstream src;
+		MForm1 mf1; MForm2 mf2; MForm3 mf3;
 		src << "#define\tVSIZE\t" << VSIZE << std::endl;
 		src << "#define\tNSIZE\t" << n << std::endl;
 		src << "#define\tCSIZE\t" << csize << std::endl << std::endl;
-		src << "#define\tNORM1\t" << Zp1::norm(n).get() << "u" << std::endl;
-		src << "#define\tNORM2\t" << Zp2::norm(n).get() << "u" << std::endl;
-		src << "#define\tNORM3\t" << Zp3::norm(n).get() << "u" << std::endl;
+		src << "#define\tNORM1\t" << mf1.toMonty(Zp1::norm(n).get()) << "u" << std::endl;
+		src << "#define\tNORM2\t" << mf2.toMonty(Zp2::norm(n).get()) << "u" << std::endl;
+		src << "#define\tNORM3\t" << mf3.toMonty(Zp3::norm(n).get()) << "u" << std::endl;
 		src << "#define\tP1\t" << P1 << "u" << std::endl;
 		src << "#define\tP2\t" << P2 << "u" << std::endl;
 		src << "#define\tP3\t" << P3 << "u" << std::endl;
-		src << "#define\tP1_INV\t" << P1_INV << "u" << std::endl;
-		src << "#define\tP2_INV\t" << P2_INV << "u" << std::endl;
-		src << "#define\tP3_INV\t" << P3_INV << "u" << std::endl;
-		src << "#define\tInvP2_P1\t" << InvP2_P1 << "u" << std::endl;
-		src << "#define\tInvP3_P1\t" << InvP3_P1 << "u" << std::endl;
-		src << "#define\tInvP3_P2\t" << InvP3_P2 << "u" << std::endl;
+		src << "#define\tQ1\t" << mf1.q() << "u" << std::endl;
+		src << "#define\tQ2\t" << mf2.q() << "u" << std::endl;
+		src << "#define\tQ3\t" << mf3.q() << "u" << std::endl;
+		src << "#define\tR1\t" << mf1.r2() << "u" << std::endl;
+		src << "#define\tR2\t" << mf2.r2() << "u" << std::endl;
+		src << "#define\tR3\t" << mf3.r2() << "u" << std::endl;
+		src << "#define\tP1_INV\t" << static_cast<uint64_t>(-1) / P1 - (static_cast<uint64_t>(1) << 32) << "u" << std::endl;
+		src << "#define\tP2_INV\t" << static_cast<uint64_t>(-1) / P2 - (static_cast<uint64_t>(1) << 32) << "u" << std::endl;
+		src << "#define\tInvP2_P1\t" << 1822724754u << "u" << std::endl;
+		src << "#define\tInvP3_P1\t" << 607574918u << "u" << std::endl;
+		src << "#define\tInvP3_P2\t" << 2995931465u << "u" << std::endl;
 		src << "#define\tP1P2P3l\t" << 15383592652180029441ull << "ul" << std::endl;
 		src << "#define\tP1P2P3h\t" << 3942432002u << "u" << std::endl;
 		src << "#define\tP1P2P3_2l\t" << 7691796326090014720ull << "ul" << std::endl;
@@ -208,13 +319,25 @@ private:
 		_engine.allocMemory(n, csize);
 		_engine.createKernels();
 
-		std::vector<uint32> wr1(n), wr2(n), wr3(n), wri1(n), wri2(n), wri3(n);
-		create<Zp1>(n, wr1.data(), wri1.data()); create<Zp2>(n, wr2.data(), wri2.data()); create<Zp3>(n, wr3.data(), wri3.data());
+		std::vector<uint32_2> wr(n), wri(n);
+		std::vector<uint32> wre(n), wrie(n);
 
-		std::vector<uint32_2> wr12(n), wri12(n);
-		for (size_t i = 0; i < n; ++i) { wr12[i].s[0] = wr1[i]; wr12[i].s[1] = wr2[i]; }
-		for (size_t i = 0; i < n; ++i) { wri12[i].s[0] = wri1[i]; wri12[i].s[1] = wri2[i]; }
-		_engine.writeMemory_w(wr12.data(), wr3.data(), wri12.data(), wri3.data());
+		for (size_t s = 1; s < n; s *= 2)
+		{
+			const size_t m = 4 * s;
+			const RNS prRoot_m = RNS::prRoot_n(static_cast<uint32_t>(m));
+			const RNSe prRoot_me = RNSe::prRoot_n(static_cast<uint32_t>(m));
+			for (size_t i = 0; i < s; ++i)
+			{
+				const size_t e = bitRev(i, 2 * s) + 1;
+				const RNS wrsi = prRoot_m.pow(static_cast<uint32_t>(e));
+				wr[s + i] = wrsi.toMonty().get(); wri[s + s - i - 1] = RNS(-wrsi).toMonty().get();
+				const RNSe wrsie = prRoot_me.pow(static_cast<uint32_t>(e));
+				wre[s + i] = wrsie.toMonty().get(); wrie[s + s - i - 1] = RNSe(-wrsie).toMonty().get();
+			}
+		}
+
+		_engine.writeMemory_w(wr.data(), wre.data(), wri.data(), wrie.data());
 	}
 
 private:
@@ -368,8 +491,8 @@ public:
 			for (size_t i = 0; i < VSIZE; ++i)
 			{
 				const size_t k = j * VSIZE + i;
-				const uint32 xk = x[k];
-				const int32 ixk = (xk > P3 / 2) ? int32(xk - P3) : int32(xk);
+				RNSe xk; xk.set(x[k]);
+				const int32 ixk = xk.fromMonty().r3().getInt();
 				int64 e = f[i] + ixk;
 				x[k] = reduce(e, b[i]);
 				f[i] = e;
