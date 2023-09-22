@@ -578,7 +578,7 @@ void square16(const __global uint32_2 * restrict const wr12, const __global uint
 	const __global uint32_2 * restrict const wri12, const __global uint32 * restrict const wri3,
 	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3)
 {
-	__local uint32_2 X12[16 * VSIZE];	// 32 KB => VSIZE = 256
+	__local uint32_2 X12[16 * VSIZE];	// VSIZE = 64 => 8 KB
 	__local uint32 X3[16 * VSIZE];
 
 	const sz_t n_4 = (sz_t)get_global_size(0) / VSIZE, sj4 = n_4 + (sz_t)get_global_id(0) / VSIZE;
@@ -675,7 +675,7 @@ void forward16(const __global uint32_2 * restrict const wr12, const __global uin
 	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3,
 	const uint32 s, const uint32 m, const int lm, const uint32 reg)
 {
-	__local uint32_2 X12[16 * VSIZE];	// 32 KB => VSIZE = 256
+	__local uint32_2 X12[16 * VSIZE];	// VSIZE = 64 => 8 KB
 	__local uint32 X3[16 * VSIZE];
 
 	const sz_t gid = (sz_t)get_global_id(0), vid = gid / VSIZE, l = gid % VSIZE;
@@ -720,7 +720,7 @@ void backward16(const __global uint32_2 * restrict const wri12, const __global u
 	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3,
 	const uint32 s, const uint32 m, const int lm)
 {
-	__local uint32_2 X12[16 * VSIZE];	// 32 KB => VSIZE = 256
+	__local uint32_2 X12[16 * VSIZE];	// VSIZE = 64 => 8 KB
 	__local uint32 X3[16 * VSIZE];
 
 	const sz_t gid = (sz_t)get_global_id(0), vid = gid / VSIZE, l = gid % VSIZE;

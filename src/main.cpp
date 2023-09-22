@@ -101,7 +101,7 @@ private:
 #endif
 
 		std::ostringstream ss;
-		ss << "genefer20 version 2.0.2 (" << sysver << ssc.str() << ")" << std::endl;
+		ss << "genefer20 version 3.0.0 (" << sysver << ssc.str() << ")" << std::endl;
 		ss << "Copyright (c) 2020-23, Yves Gallot" << std::endl;
 		ss << "genefer20 is free source code, under the MIT license." << std::endl;
 		if (nl)
@@ -183,8 +183,8 @@ public:
 		if (args.empty()) return;
 
 		size_t d = 0;
-		int n = 0;	// 10;
-		std::string filename;	// = "GFN10.txt";	// test
+		int n = 0;
+		std::string filename;
 #if defined(BOINC)
 		bool ext_device = false;
 #endif
@@ -198,7 +198,7 @@ public:
 				const std::string nval = ((arg == "-n") && (i + 1 < size)) ? args[++i] : arg.substr(2);
 				n = std::atoi(nval.c_str());
 				if (n < 8) throw std::runtime_error("n < 8 is not supported");
-				if (n > 16) throw std::runtime_error("n > 16 is not supported");
+				if (n > 17) throw std::runtime_error("n > 17 is not supported");
 			}
 			else if (arg.substr(0, 2) == "-f")
 			{

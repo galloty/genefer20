@@ -330,6 +330,8 @@ public:
 				if (_quit)
 				{
 					saveContext(ctxFilename, i, chrono.getElapsedTime());
+					clearline();
+					elapsedTime = chrono.getElapsedTime();
 					return false;
 				}
 
@@ -389,7 +391,12 @@ public:
 		for (int i = i0; i >= B_GL; --i)
 		{
 			if (_isBoinc) boincMonitor();
-			if (_quit) return false;
+			if (_quit)
+			{
+				clearline();
+				elapsedTime = chrono.getElapsedTime();
+				return false;
+			}
 
 			pTransform->squareDup(get_bitcnt(size_t(i), exponent.data()));
 		}
@@ -399,7 +406,12 @@ public:
 		for (int i = B_GL - 1; i >= 0; --i)
 		{
 			if (_isBoinc) boincMonitor();
-			if (_quit) return false;
+			if (_quit)
+			{
+				clearline();
+				elapsedTime = chrono.getElapsedTime();
+				return false;
+			}
 
 			const uint64_t bitcnt = (i <= i0) ? get_bitcnt(size_t(i), exponent.data()) : 0;
 			pTransform->squareDup(bitcnt);

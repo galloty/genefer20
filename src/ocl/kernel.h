@@ -590,7 +590,7 @@ static const char * const src_ocl_kernel = \
 "	const __global uint32_2 * restrict const wri12, const __global uint32 * restrict const wri3,\n" \
 "	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3)\n" \
 "{\n" \
-"	__local uint32_2 X12[16 * VSIZE];	// 32 KB => VSIZE = 256\n" \
+"	__local uint32_2 X12[16 * VSIZE];	// VSIZE = 64 => 8 KB\n" \
 "	__local uint32 X3[16 * VSIZE];\n" \
 "\n" \
 "	const sz_t n_4 = (sz_t)get_global_size(0) / VSIZE, sj4 = n_4 + (sz_t)get_global_id(0) / VSIZE;\n" \
@@ -687,7 +687,7 @@ static const char * const src_ocl_kernel = \
 "	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3,\n" \
 "	const uint32 s, const uint32 m, const int lm, const uint32 reg)\n" \
 "{\n" \
-"	__local uint32_2 X12[16 * VSIZE];	// 32 KB => VSIZE = 256\n" \
+"	__local uint32_2 X12[16 * VSIZE];	// VSIZE = 64 => 8 KB\n" \
 "	__local uint32 X3[16 * VSIZE];\n" \
 "\n" \
 "	const sz_t gid = (sz_t)get_global_id(0), vid = gid / VSIZE, l = gid % VSIZE;\n" \
@@ -732,7 +732,7 @@ static const char * const src_ocl_kernel = \
 "	__global uint32_2 * restrict const x12, __global uint32 * restrict const x3,\n" \
 "	const uint32 s, const uint32 m, const int lm)\n" \
 "{\n" \
-"	__local uint32_2 X12[16 * VSIZE];	// 32 KB => VSIZE = 256\n" \
+"	__local uint32_2 X12[16 * VSIZE];	// VSIZE = 64 => 8 KB\n" \
 "	__local uint32 X3[16 * VSIZE];\n" \
 "\n" \
 "	const sz_t gid = (sz_t)get_global_id(0), vid = gid / VSIZE, l = gid % VSIZE;\n" \
